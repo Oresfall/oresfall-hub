@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 interface Episode {
   id: string;
-  canto_name: string;
+  intervallo_name: string;
   episode_name: string;
   original_file_url: string;
   banner_url?: string;
@@ -24,9 +24,9 @@ interface Submission {
   created_at: string;
 }
 
-export default function CantoTranslationPage() {
+export default function IntervalloTranslationPage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [selectedCanto, setSelectedCanto] = useState<string>('');
+  const [selectedIntervallo, setSelectedIntervallo] = useState<string>('');
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [originalJson, setOriginalJson] = useState<string>('');
@@ -34,21 +34,19 @@ export default function CantoTranslationPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   
   // Modal States
-  const [showAddBannerModal, setShowAddBannerModal] = useState(false);
-  const [showAddContentModal, setShowAddContentModal] = useState(false);
-  const [showEditCantoModal, setShowEditCantoModal] = useState(false);
-  const [showEditEpisodeModal, setShowEditEpisodeModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [modalType, setModalType] = useState<'add_intervallo' | 'add_episode' | 'edit_intervallo' | 'edit_episode'>('add_intervallo');
   
-  // Edit & Input States
-  const [targetCantoName, setTargetCantoName] = useState('');
+  // Target Edit
+  const [targetIntervalloName, setTargetIntervalloName] = useState('');
   const [editingEpisode, setEditingEpisode] = useState<Episode | null>(null);
 
-  const [cantoName, setCantoName] = useState('');
+  // Form Input States
+  const [intervalloName, setIntervalloName] = useState('');
   const [episodeName, setEpisodeName] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
-  const [targetCantoSelect, setTargetCantoSelect] = useState('');
-  
   const [adminFile, setAdminFile] = useState<{ name: string; content: any } | null>(null);
+
   const [userFile, setUserFile] = useState<{ name: string; content: any } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -87,8 +85,18 @@ export default function CantoTranslationPage() {
   };
 
   const fetchEpisodes = async () => {
-    const { data: epData } = await supabase.from('episodes').select('*').order('canto_name');
-    const { data: subData } = await supabase.from('submissions').select('episode_id, status').eq('status', 'approved');
+    // Memastikan hanya mengambil episode yang memiliki intervallo_name (Bukan Canto)
+    const { data: epData } = await supabase
+      .from('episodes')
+      .select('*')
+      .not('intervallo_name', 'is', null)
+      .neq('intervallo_name', '')
+      .order('created_at', { ascending: true });
+
+    const { data: subData } = await supabase
+      .from('submissions')
+      .select('episode_id, status')
+      .eq('status', 'approved');
 
     if (epData && epData.length > 0) {
       const approvedEpIds = new Set(subData?.map((s) => s.episode_id) || []);
@@ -98,12 +106,12 @@ export default function CantoTranslationPage() {
       }));
 
       setEpisodes(enrichedEpisodes);
-      if (!selectedCanto) {
-        setSelectedCanto(enrichedEpisodes[0].canto_name);
+      if (!selectedIntervallo) {
+        setSelectedIntervallo(enrichedEpisodes[0].intervallo_name);
       }
     } else {
       setEpisodes([]);
-      setSelectedCanto('');
+      setSelectedIntervallo('');
     }
   };
 
@@ -194,158 +202,66 @@ export default function CantoTranslationPage() {
     }
   };
 
-  // HANDLER ACTION FORM
-  const handleAddBannerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      // Menambahkan dummy episode atau menyelaraskan banner ke Canto
-      const { error } = await supabase.from('episodes').insert([
-        {
-          canto_name: cantoName,
-          episode_name: 'Episode 1',
-          banner_url: bannerUrl,
-          original_file_url: '',
-        },
-      ]);
-      if (error) throw error;
-
-      setShowAddBannerModal(false);
-      setCantoName('');
-      setBannerUrl('');
-      await fetchEpisodes();
-      alert('Banner Canto berhasil ditambahkan!');
-    } catch (err: any) {
-      alert('Gagal membuat Banner: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
+  const openAddIntervalloModal = () => {
+    setModalType('add_intervallo');
+    setIntervalloName('');
+    setBannerUrl('');
+    setShowAdminModal(true);
   };
 
-  const handleAddContentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminFile) return alert('Pilih file JSON mentah!');
-    if (!targetCantoSelect) return alert('Pilih Canto!');
-    setLoading(true);
-
-    try {
-      const currentBanner = episodes.find((ep) => ep.canto_name === targetCantoSelect)?.banner_url || '';
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'admin_original',
-          cantoName: targetCantoSelect,
-          episodeName,
-          bannerUrl: currentBanner,
-          fileName: adminFile.name,
-          jsonContent: adminFile.content,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Gagal membuat Content Episode baru');
-
-      setShowAddContentModal(false);
-      setEpisodeName('');
-      setAdminFile(null);
-      await fetchEpisodes();
-      alert('Content Episode berhasil ditambahkan!');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const openAddEpisodeModal = () => {
+    setModalType('add_episode');
+    setIntervalloName(selectedIntervallo || '');
+    setEpisodeName('');
+    setAdminFile(null);
+    setShowAdminModal(true);
   };
 
-  const handleEditCantoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('episodes')
-        .update({ canto_name: cantoName, banner_url: bannerUrl })
-        .eq('canto_name', targetCantoName);
-
-      if (error) throw error;
-      if (selectedCanto === targetCantoName) setSelectedCanto(cantoName);
-
-      setShowEditCantoModal(false);
-      await fetchEpisodes();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditEpisodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingEpisode) return;
-    setLoading(true);
-    try {
-      if (adminFile) {
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'admin_original',
-            episodeId: editingEpisode.id,
-            cantoName: editingEpisode.canto_name,
-            episodeName,
-            bannerUrl: editingEpisode.banner_url,
-            fileName: adminFile.name,
-            jsonContent: adminFile.content,
-          }),
-        });
-        if (!res.ok) throw new Error('Gagal memperbarui file episode');
-      } else {
-        const { error } = await supabase
-          .from('episodes')
-          .update({ episode_name: episodeName })
-          .eq('id', editingEpisode.id);
-
-        if (error) throw error;
-      }
-
-      setShowEditEpisodeModal(false);
-      await fetchEpisodes();
-
-      if (selectedEpisode?.id === editingEpisode.id) {
-        await selectEpisode({ ...editingEpisode, episode_name: episodeName });
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteCanto = async (cantoToDelete: string, e: React.MouseEvent) => {
+  const openEditIntervalloModal = (intervallo: string, currentBanner: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`PERINGATAN: Menghapus "${cantoToDelete}" akan menghapus SELURUH episode dan terjemahan di dalam Canto ini.\n\nYakin ingin melanjutkan?`)) return;
+    setModalType('edit_intervallo');
+    setTargetIntervalloName(intervallo);
+    setIntervalloName(intervallo);
+    setBannerUrl(currentBanner || '');
+    setShowAdminModal(true);
+  };
+
+  const openEditEpisodeModal = (ep: Episode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setModalType('edit_episode');
+    setEditingEpisode(ep);
+    setEpisodeName(ep.episode_name);
+    setIntervalloName(ep.intervallo_name);
+    setBannerUrl(ep.banner_url || '');
+    setAdminFile(null);
+    setShowAdminModal(true);
+  };
+
+  const handleDeleteIntervallo = async (intervalloToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`PERINGATAN: Menghapus "${intervalloToDelete}" akan menghapus SELURUH episode Intervallo ini.\n\nYakin ingin melanjutkan?`)) return;
 
     setLoading(true);
     try {
-      const cantoEpisodes = episodes.filter((ep) => ep.canto_name === cantoToDelete);
-      const episodeIds = cantoEpisodes.map((ep) => ep.id);
+      const intervalloEpisodes = episodes.filter((ep) => ep.intervallo_name === intervalloToDelete);
+      const episodeIds = intervalloEpisodes.map((ep) => ep.id);
 
       if (episodeIds.length > 0) {
         await supabase.from('submissions').delete().in('episode_id', episodeIds);
       }
 
-      const { error } = await supabase.from('episodes').delete().eq('canto_name', cantoToDelete);
+      const { error } = await supabase.from('episodes').delete().eq('intervallo_name', intervalloToDelete);
       if (error) throw error;
 
-      if (selectedCanto === cantoToDelete) {
-        setSelectedCanto('');
+      if (selectedIntervallo === intervalloToDelete) {
+        setSelectedIntervallo('');
         setSelectedEpisode(null);
       }
 
       fetchEpisodes();
-      alert(`Banner Canto "${cantoToDelete}" berhasil dihapus.`);
+      alert(`Intervallo "${intervalloToDelete}" berhasil dihapus.`);
     } catch (err: any) {
-      alert('Gagal menghapus Canto: ' + err.message);
+      alert('Gagal menghapus Intervallo: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -363,6 +279,94 @@ export default function CantoTranslationPage() {
       if (selectedEpisode?.id === id) setSelectedEpisode(null);
     } catch (err: any) {
       alert('Gagal menghapus: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (modalType === 'add_intervallo') {
+        if (!intervalloName) return alert('Nama Intervallo tidak boleh kosong!');
+        
+        const { error } = await supabase.from('episodes').insert([{
+          intervallo_name: intervalloName,
+          episode_name: 'Episode 1',
+          banner_url: bannerUrl,
+          original_file_url: ''
+        }]);
+
+        if (error) throw error;
+        setSelectedIntervallo(intervalloName);
+
+      } else if (modalType === 'edit_intervallo') {
+        const { error } = await supabase
+          .from('episodes')
+          .update({
+            intervallo_name: intervalloName,
+            banner_url: bannerUrl,
+          })
+          .eq('intervallo_name', targetIntervalloName);
+
+        if (error) throw error;
+        if (selectedIntervallo === targetIntervalloName) setSelectedIntervallo(intervalloName);
+
+      } else if (modalType === 'edit_episode' && editingEpisode) {
+        if (adminFile) {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'admin_original',
+              episodeId: editingEpisode.id,
+              intervalloName: editingEpisode.intervallo_name,
+              episodeName,
+              bannerUrl: editingEpisode.banner_url,
+              fileName: adminFile.name,
+              jsonContent: adminFile.content,
+            }),
+          });
+          if (!res.ok) throw new Error('Gagal memperbarui file episode');
+        } else {
+          const { error } = await supabase
+            .from('episodes')
+            .update({ episode_name: episodeName })
+            .eq('id', editingEpisode.id);
+
+          if (error) throw error;
+        }
+
+      } else if (modalType === 'add_episode') {
+        if (!adminFile) return alert('Pilih file JSON mentah!');
+        
+        const currentBanner = episodes.find((ep) => ep.intervallo_name === intervalloName)?.banner_url || '';
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'admin_original',
+            intervalloName: intervalloName || selectedIntervallo,
+            episodeName,
+            bannerUrl: currentBanner,
+            fileName: adminFile.name,
+            jsonContent: adminFile.content,
+          }),
+        });
+        if (!res.ok) throw new Error('Gagal membuat episode baru');
+      }
+
+      setShowAdminModal(false);
+      await fetchEpisodes();
+
+      if (editingEpisode && selectedEpisode?.id === editingEpisode.id) {
+        await selectEpisode({ ...editingEpisode, episode_name: episodeName });
+      }
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setLoading(false);
     }
@@ -400,8 +404,8 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)));
-  const currentEpisodes = episodes.filter((ep) => ep.canto_name === selectedCanto);
+  const intervallosList = Array.from(new Set(episodes.map((ep) => ep.intervallo_name))).filter(Boolean);
+  const currentEpisodes = episodes.filter((ep) => ep.intervallo_name === selectedIntervallo);
 
   return (
     <div className="flex h-screen bg-[#0d0e10] text-zinc-300 text-xs font-sans overflow-hidden">
@@ -412,29 +416,32 @@ export default function CantoTranslationPage() {
           <Link href="/limbus-id-tl" className="text-zinc-400 hover:text-white font-bold block transition">
             &larr; Layar Utama
           </Link>
-          <h1 className="font-bold text-red-500 text-sm uppercase tracking-wider border-b border-[#222327] pb-2">
-            CANTO STORY HUB
+          <h1 className="font-bold text-amber-500 text-sm uppercase tracking-wider border-b border-[#222327] pb-2">
+            INTERVALLO STORY HUB
           </h1>
 
-          {/* LIST BANNER CANTO */}
+          {/* LIST BANNER INTERVALLO */}
           <div className="space-y-3 overflow-y-auto pr-2 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-wider px-1">Pilih Canto</p>
-            {cantosList.map((canto) => {
-              const cantoEps = episodes.filter((e) => e.canto_name === canto);
-              const totalEps = cantoEps.length;
-              const completedEps = cantoEps.filter((e) => e.is_completed).length;
-              const banner = cantoEps.find((e) => e.banner_url)?.banner_url;
+            <div className="flex justify-between items-center px-1">
+              <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-wider">Pilih Intervallo</p>
+            </div>
+
+            {intervallosList.map((intervallo) => {
+              const intervalloEps = episodes.filter((e) => e.intervallo_name === intervallo);
+              const totalEps = intervalloEps.length;
+              const completedEps = intervalloEps.filter((e) => e.is_completed).length;
+              const banner = intervalloEps.find((e) => e.banner_url)?.banner_url;
 
               return (
                 <div
-                  key={canto}
+                  key={intervallo}
                   onClick={() => {
-                    setSelectedCanto(canto);
+                    setSelectedIntervallo(intervallo);
                     setSelectedEpisode(null);
                   }}
                   className={`group relative h-20 rounded-lg border-2 overflow-hidden cursor-pointer transition-all shadow-md ${
-                    selectedCanto === canto
-                      ? 'border-red-600 ring-2 ring-red-600/30'
+                    selectedIntervallo === intervallo
+                      ? 'border-amber-500 ring-2 ring-amber-500/30'
                       : 'border-[#2a2b30] hover:border-zinc-500'
                   }`}
                 >
@@ -448,7 +455,7 @@ export default function CantoTranslationPage() {
 
                   <div className="relative z-10 h-full flex flex-col items-center justify-center p-2 text-center">
                     <span className="font-extrabold text-amber-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] text-xs uppercase tracking-wider">
-                      {canto}
+                      {intervallo}
                     </span>
                     <span className="text-[10px] font-bold text-zinc-300 bg-black/60 px-2 py-0.5 rounded-full mt-1 border border-zinc-700/50">
                       Progress: {completedEps}/{totalEps}
@@ -458,19 +465,13 @@ export default function CantoTranslationPage() {
                   {isAdmin && (
                     <div className="absolute top-1.5 right-1.5 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTargetCantoName(canto);
-                          setCantoName(canto);
-                          setBannerUrl(banner || '');
-                          setShowEditCantoModal(true);
-                        }}
+                        onClick={(e) => openEditIntervalloModal(intervallo, banner || '', e)}
                         className="bg-black/80 hover:bg-black text-amber-400 text-[10px] px-1.5 py-0.5 rounded border border-amber-500/40 font-bold"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={(e) => handleDeleteCanto(canto, e)}
+                        onClick={(e) => handleDeleteIntervallo(intervallo, e)}
                         className="bg-red-950/90 hover:bg-red-800 text-red-200 text-[10px] px-1.5 py-0.5 rounded border border-red-500/40 font-bold"
                       >
                         Hapus
@@ -483,29 +484,20 @@ export default function CantoTranslationPage() {
           </div>
         </div>
 
-        {/* BOTTOM SIDEBAR (DUA TOMBOL TERPISAH) */}
+        {/* BOTTOM SIDEBAR */}
         {isAdmin && (
           <div className="pt-3 border-t border-[#222327] space-y-2">
             <button
-              onClick={() => {
-                setCantoName('');
-                setBannerUrl('');
-                setShowAddBannerModal(true);
-              }}
+              onClick={openAddIntervalloModal}
               className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 px-3 rounded transition shadow text-xs"
             >
-              + Admin: Tambah Banner
+              + Admin: Tambah Banner Intervallo
             </button>
             <button
-              onClick={() => {
-                setTargetCantoSelect(selectedCanto || cantosList[0] || '');
-                setEpisodeName('');
-                setAdminFile(null);
-                setShowAddContentModal(true);
-              }}
+              onClick={openAddEpisodeModal}
               className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded transition shadow text-xs"
             >
-              + Admin: Tambah Content
+              + Admin: Tambah Episode Intervallo
             </button>
           </div>
         )}
@@ -513,20 +505,23 @@ export default function CantoTranslationPage() {
 
       {/* AREA KANAN */}
       <main className="flex-1 p-6 overflow-y-auto space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        
         {!selectedEpisode ? (
           <div className="space-y-4">
-            <header className="border-b border-[#222327] pb-3">
-              <span className="text-red-500 font-bold uppercase text-xs">Pilih Episode</span>
-              <h2 className="text-2xl font-extrabold text-white">{selectedCanto || 'Daftar Episode'}</h2>
-              
-              <div className="flex items-center gap-4 mt-2 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-zinc-300">Hijau = Sudah Selesai</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  <span className="text-zinc-300">Merah = Belum Selesai</span>
+            <header className="border-b border-[#222327] pb-3 flex justify-between items-end">
+              <div>
+                <span className="text-amber-500 font-bold uppercase text-xs">Pilih Episode Intervallo</span>
+                <h2 className="text-2xl font-extrabold text-white">{selectedIntervallo || 'Daftar Episode'}</h2>
+                
+                <div className="flex items-center gap-4 mt-2 text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-zinc-300">Hijau = Sudah Selesai</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <span className="text-zinc-300">Merah = Belum Selesai</span>
+                  </div>
                 </div>
               </div>
             </header>
@@ -536,7 +531,7 @@ export default function CantoTranslationPage() {
                 <div
                   key={ep.id}
                   onClick={() => selectEpisode(ep)}
-                  className="group flex items-center justify-between p-3 rounded-lg bg-[#141518] border border-[#222327] hover:border-red-600/60 hover:bg-[#1a1b1f] cursor-pointer transition shadow"
+                  className="group flex items-center justify-between p-3 rounded-lg bg-[#141518] border border-[#222327] hover:border-amber-600/60 hover:bg-[#1a1b1f] cursor-pointer transition shadow"
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -552,12 +547,7 @@ export default function CantoTranslationPage() {
                   {isAdmin && (
                     <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingEpisode(ep);
-                          setEpisodeName(ep.episode_name);
-                          setShowEditEpisodeModal(true);
-                        }}
+                        onClick={(e) => openEditEpisodeModal(ep, e)}
                         className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-[10px] px-2 py-1 rounded border border-amber-500/40 font-bold"
                       >
                         Edit Episode
@@ -574,7 +564,7 @@ export default function CantoTranslationPage() {
               ))}
 
               {currentEpisodes.length === 0 && (
-                <p className="text-zinc-500 py-8">Belum ada episode di Canto ini.</p>
+                <p className="text-zinc-500 py-8">Belum ada episode di Intervallo ini.</p>
               )}
             </div>
           </div>
@@ -583,11 +573,11 @@ export default function CantoTranslationPage() {
             <header className="border-b border-[#222327] pb-3">
               <button
                 onClick={() => setSelectedEpisode(null)}
-                className="text-red-400 hover:text-red-300 font-bold mb-2 block transition"
+                className="text-amber-400 hover:text-amber-300 font-bold mb-2 block transition"
               >
                 &larr; Kembali ke List Episode
               </button>
-              <span className="text-red-500 font-bold uppercase">{selectedEpisode.canto_name}</span>
+              <span className="text-amber-500 font-bold uppercase">{selectedEpisode.intervallo_name}</span>
               <h2 className="text-2xl font-bold text-white">{selectedEpisode.episode_name}</h2>
             </header>
 
@@ -605,9 +595,9 @@ export default function CantoTranslationPage() {
               </div>
             </section>
 
-            {/* FORM SUBMIT TRANSLATION */}
+            {/* FORM SUBMIT */}
             <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-red-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
+              <h3 className="font-bold text-amber-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
               <form onSubmit={handleUserSubmit} className="flex items-center gap-3">
                 <input
                   type="file"
@@ -625,14 +615,14 @@ export default function CantoTranslationPage() {
                 <button
                   type="submit"
                   disabled={loading || !userFile}
-                  className="bg-[#b91c1c] hover:bg-[#dc2626] disabled:bg-zinc-800 text-white font-bold px-4 py-1.5 rounded transition"
+                  className="bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-800 text-white font-bold px-4 py-1.5 rounded transition"
                 >
                   {loading ? 'Uploading...' : 'Submit Terjemahan'}
                 </button>
               </form>
             </section>
 
-            {/* REVIEW SUBMISSIONS */}
+            {/* DAFTAR REVIEW SUBMISSION */}
             <section className="space-y-3">
               <h3 className="font-bold text-zinc-300">Daftar Review Terjemahan Komunitas</h3>
               
@@ -691,7 +681,7 @@ export default function CantoTranslationPage() {
                           href={sub.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-red-400 hover:underline text-[10px]"
+                          className="text-amber-400 hover:underline text-[10px]"
                         >
                           Raw Link
                         </a>
@@ -705,220 +695,155 @@ export default function CantoTranslationPage() {
         )}
       </main>
 
-      {/* MODAL 1: TAMBAH BANNER CANTO */}
-      {showAddBannerModal && (
+      {/* MODAL ADMIN */}
+      {showAdminModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Tambah Banner Canto</h3>
+            <h3 className="text-amber-400 font-bold text-sm">
+              {modalType === 'add_intervallo' && 'Admin: Tambah Banner Intervallo Baru'}
+              {modalType === 'edit_intervallo' && `Admin: Edit Banner & Nama ${targetIntervalloName}`}
+              {modalType === 'edit_episode' && `Admin: Edit ${editingEpisode?.episode_name}`}
+              {modalType === 'add_episode' && 'Admin: Tambah Content Intervallo Baru'}
+            </h3>
 
-            <form onSubmit={handleAddBannerSubmit} className="space-y-3">
-              <div>
-                <label className="block text-zinc-400 mb-1">Nama Canto</label>
-                <input
-                  type="text"
-                  placeholder="misal: Canto 1"
-                  value={cantoName}
-                  onChange={(e) => setCantoName(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                  required
-                />
-              </div>
+            <form onSubmit={handleAdminSubmit} className="space-y-3">
+              {modalType === 'add_intervallo' && (
+                <>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Nama Intervallo Baru</label>
+                    <input
+                      type="text"
+                      value={intervalloName}
+                      onChange={(e) => setIntervalloName(e.target.value)}
+                      placeholder="Contoh: Intervallo 1"
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">URL Gambar Banner Intervallo</label>
+                    <input
+                      type="url"
+                      value={bannerUrl}
+                      onChange={(e) => setBannerUrl(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                      placeholder="https://example.com/banner.png"
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
-              <div>
-                <label className="block text-zinc-400 mb-1">URL Gambar Banner Canto</label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/banner.png"
-                  value={bannerUrl}
-                  onChange={(e) => setBannerUrl(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
-                  required
-                />
-              </div>
+              {modalType === 'edit_intervallo' && (
+                <>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Nama Intervallo</label>
+                    <input
+                      type="text"
+                      value={intervalloName}
+                      onChange={(e) => setIntervalloName(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">URL Gambar Banner Intervallo</label>
+                    <input
+                      type="url"
+                      value={bannerUrl}
+                      onChange={(e) => setBannerUrl(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                      placeholder="https://example.com/banner.png"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {modalType === 'edit_episode' && (
+                <>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Nama Episode</label>
+                    <input
+                      type="text"
+                      value={episodeName}
+                      onChange={(e) => setEpisodeName(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Ganti File JSON Mentah (Opsional)</label>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          const r = new FileReader();
+                          r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
+                          r.readAsText(f);
+                        }
+                      }}
+                      className="text-xs text-zinc-400"
+                    />
+                  </div>
+                </>
+              )}
+
+              {modalType === 'add_episode' && (
+                <>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Pilih Target Intervallo</label>
+                    <select
+                      value={intervalloName}
+                      onChange={(e) => setIntervalloName(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
+                      required
+                    >
+                      <option value="">-- Pilih Intervallo --</option>
+                      {intervallosList.map((i) => (
+                        <option key={i} value={i}>
+                          {i}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Nama Episode</label>
+                    <input
+                      type="text"
+                      value={episodeName}
+                      onChange={(e) => setEpisodeName(e.target.value)}
+                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
+                      placeholder="Contoh: Episode 1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Upload File JSON Mentah Original</label>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          const r = new FileReader();
+                          r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
+                          r.readAsText(f);
+                        }
+                      }}
+                      className="text-xs text-zinc-400"
+                      required
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddBannerModal(false)}
-                  className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded"
-                >
-                  {loading ? 'Simpan...' : 'Simpan Banner'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: TAMBAH CONTENT EPISODE */}
-      {showAddContentModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-red-400 font-bold text-sm">Admin: Tambah Content Episode Baru</h3>
-
-            <form onSubmit={handleAddContentSubmit} className="space-y-3">
-              <div>
-                <label className="block text-zinc-400 mb-1">Pilih Canto Target</label>
-                <select
-                  value={targetCantoSelect}
-                  onChange={(e) => setTargetCantoSelect(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                  required
-                >
-                  <option value="">-- Pilih Canto --</option>
-                  {cantosList.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1">Nama Episode</label>
-                <input
-                  type="text"
-                  placeholder="misal: Episode 1"
-                  value={episodeName}
-                  onChange={(e) => setEpisodeName(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1">Upload File JSON Mentah Original</label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      const r = new FileReader();
-                      r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                      r.readAsText(f);
-                    }
-                  }}
-                  className="text-xs text-zinc-400"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddContentModal(false)}
-                  className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white font-bold rounded"
-                >
-                  {loading ? 'Uploading...' : 'Simpan Content'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDIT CANTO */}
-      {showEditCantoModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit Banner & Nama {targetCantoName}</h3>
-
-            <form onSubmit={handleEditCantoSubmit} className="space-y-3">
-              <div>
-                <label className="block text-zinc-400 mb-1">Nama Canto</label>
-                <input
-                  type="text"
-                  value={cantoName}
-                  onChange={(e) => setCantoName(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-zinc-400 mb-1">URL Gambar Banner Canto</label>
-                <input
-                  type="url"
-                  value={bannerUrl}
-                  onChange={(e) => setBannerUrl(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditCantoModal(false)}
-                  className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded"
-                >
-                  {loading ? 'Saving...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDIT EPISODE */}
-      {showEditEpisodeModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit {editingEpisode?.episode_name}</h3>
-
-            <form onSubmit={handleEditEpisodeSubmit} className="space-y-3">
-              <div>
-                <label className="block text-zinc-400 mb-1">Nama Episode</label>
-                <input
-                  type="text"
-                  value={episodeName}
-                  onChange={(e) => setEpisodeName(e.target.value)}
-                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-zinc-400 mb-1">Ganti File JSON Mentah (Opsional)</label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      const r = new FileReader();
-                      r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                      r.readAsText(f);
-                    }
-                  }}
-                  className="text-xs text-zinc-400"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditEpisodeModal(false)}
+                  onClick={() => setShowAdminModal(false)}
                   className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
                 >
                   Batal

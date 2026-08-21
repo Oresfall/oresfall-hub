@@ -4,7 +4,17 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, cantoName, episodeName, episodeId, fileName, jsonContent, authorName, authorId } = body;
+    const { 
+      type, 
+      cantoName, 
+      intervalloName, 
+      episodeName, 
+      episodeId, 
+      fileName, 
+      jsonContent, 
+      authorName, 
+      authorId 
+    } = body;
 
     const contentString = JSON.stringify(jsonContent, null, 2);
     const base64Content = Buffer.from(contentString).toString('base64');
@@ -13,11 +23,15 @@ export async function POST(request: Request) {
     const githubRepo = process.env.GITHUB_REPO;
     const githubToken = process.env.GITHUB_TOKEN;
 
+    // Menentukan kategori folder & nama utama (Canto atau Intervallo)
+    const storyCategory = intervalloName ? 'intervallo' : 'canto';
+    const storyName = intervalloName || cantoName || 'Unknown';
+
     // ----------------------------------------------------
     // A. UPLOAD / UPDATE FILE ORIGINAL MENTAH (KHUSUS ADMIN)
     // ----------------------------------------------------
     if (type === 'admin_original') {
-      const filePath = `originals/${cantoName}/${episodeName}/${fileName}`;
+      const filePath = `originals/${storyCategory}/${storyName}/${episodeName}/${fileName}`;
 
       // 1. Cek apakah file sudah ada di GitHub untuk mendapatkan `sha`
       let fileSha: string | undefined = undefined;
@@ -51,10 +65,10 @@ export async function POST(request: Request) {
           },
           body: JSON.stringify({
             message: episodeId 
-              ? `Update original: ${cantoName} - ${episodeName}`
-              : `Add original: ${cantoName} - ${episodeName}`,
+              ? `Update original: ${storyName} - ${episodeName}`
+              : `Add original: ${storyName} - ${episodeName}`,
             content: base64Content,
-            ...(fileSha && { sha: fileSha }), // Sertakan sha jika overwrite file
+            ...(fileSha && { sha: fileSha }),
           }),
         }
       );
@@ -65,12 +79,20 @@ export async function POST(request: Request) {
       // 3. Update atau Insert ke Supabase
       if (episodeId) {
         // Jika UPDATE episode
+        const updatePayload: Record<string, any> = {
+          episode_name: episodeName,
+          original_file_url: ghData.content.download_url,
+        };
+
+        if (intervalloName) {
+          updatePayload.intervallo_name = intervalloName;
+        } else if (cantoName) {
+          updatePayload.canto_name = cantoName;
+        }
+
         const { data, error } = await supabase
           .from('episodes')
-          .update({
-            episode_name: episodeName,
-            original_file_url: ghData.content.download_url,
-          })
+          .update(updatePayload)
           .eq('id', episodeId)
           .select()
           .single();
@@ -79,13 +101,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, data });
       } else {
         // Jika TAMBAH episode baru
+        const insertPayload: Record<string, any> = {
+          episode_name: episodeName,
+          original_file_url: ghData.content.download_url,
+        };
+
+        if (intervalloName) {
+          insertPayload.intervallo_name = intervalloName;
+        } else {
+          insertPayload.canto_name = cantoName;
+        }
+
         const { data, error } = await supabase
           .from('episodes')
-          .insert({
-            canto_name: cantoName,
-            episode_name: episodeName,
-            original_file_url: ghData.content.download_url,
-          })
+          .insert(insertPayload)
           .select()
           .single();
 

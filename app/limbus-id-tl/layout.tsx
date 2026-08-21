@@ -193,7 +193,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
 
           <nav className="bg-[#14151a]/90 border border-[#27272a] rounded p-3 text-xs space-y-4 backdrop-blur">
             <div>
-              <p className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">Navigasi</p>
+              <div className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">Navigasi</div>
               <ul className="space-y-1.5 text-[#a1a1aa]">
                 <li>
                   <a 
@@ -206,19 +206,18 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
                   </a>
                 </li>
                 <li><Link href="/limbus-id-tl" className="hover:text-white transition">Halaman Utama</Link></li>
-                <li><Link href="/limbus-id-tl/submit" className="hover:text-white transition">Kirim Terjemahan</Link></li>
               </ul>
             </div>
 
             <div>
               <p className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">Terjemahan</p>
               <ul className="space-y-1.5 text-[#a1a1aa]">
-                <li><a href="#categori-grid" className="hover:text-white">Canto</a></li>
-                <li><a href="#categori-grid" className="hover:text-white">Intervallo</a></li>
-                <li><a href="#categori-grid" className="hover:text-white">Identitas</a></li>
-                <li><a href="#categori-grid" className="hover:text-white">Announcer</a></li>
-                <li><a href="#categori-grid" className="hover:text-white">Ego Gift</a></li>
-                <li><a href="#categori-grid" className="hover:text-white">Lirik Lagu</a></li>
+                <li><Link href="/limbus-id-tl/canto" className="hover:text-white transition">Canto</Link></li>
+                <li><Link href="/limbus-id-tl/intervallo" className="hover:text-white transition">Intervallo</Link></li>
+                <li><Link href="/limbus-id-tl/identitas" className="hover:text-white transition">Identitas</Link></li>
+                <li><Link href="/limbus-id-tl/announcer" className="hover:text-white transition">Announcer</Link></li>
+                <li><Link href="/limbus-id-tl/ego-gift" className="hover:text-white transition">Ego Gift</Link></li>
+                <li><Link href="/limbus-id-tl/lirik-lagu" className="hover:text-white transition">Lirik Lagu</Link></li>
               </ul>
             </div>
           </nav>
@@ -259,7 +258,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
             </div>
           </div>
 
-          {/* WIDGET LEADERBOARD AGUSTUS (TOP 1-10) */}
+          {/* WIDGET LEADERBOARD (TOP 1-10) */}
           <div className="bg-[#14151a]/90 border border-[#27272a] rounded overflow-hidden backdrop-blur shadow-lg">
             <div className="bg-[#18181b] border-b border-[#27272a] px-3 py-2 flex justify-between items-center">
               <span className="font-bold text-xs text-amber-400 uppercase tracking-wider">
