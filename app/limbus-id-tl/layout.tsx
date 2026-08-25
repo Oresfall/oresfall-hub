@@ -124,12 +124,6 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         </div>
 
         <div className="flex items-center gap-4">
-          <input
-            type="text"
-            placeholder="Cari Wiki TL Limbus..."
-            className="bg-[#18181b] border border-[#3f3f46] text-[#e4e4e7] px-3 py-1 rounded w-64 text-xs focus:outline-none focus:border-[#ef4444]"
-          />
-          
           <div className="flex gap-3 text-slate-300 font-semibold">
             {user ? (
               <div className="flex items-center gap-3">
@@ -155,27 +149,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      {/* 2. Bar Tab Sekunder */}
-      <div className="bg-[#14151a]/90 backdrop-blur border-b border-[#27272a] px-4 md:px-8 text-xs flex justify-between items-center h-9">
-        <div className="flex gap-1 h-full items-end">
-          <Link 
-            href="/limbus-id-tl" 
-            className="bg-[#1e1f26] text-[#ef4444] border-t-2 border-[#ef4444] px-4 py-1.5 font-bold flex items-center"
-          >
-            Halaman Utama
-          </Link>
-          <button className="text-[#a1a1aa] hover:text-white px-4 py-1.5 transition">
-            Diskusi
-          </button>
-        </div>
-        <div className="flex gap-2 text-[#a1a1aa] font-medium">
-          <button className="bg-[#18181b] px-2.5 py-1 rounded hover:text-white">Baca</button>
-          <button className="hover:text-white px-2.5 py-1">Lihat Sumber</button>
-          <button className="hover:text-white px-2.5 py-1">Riwayat</button>
-        </div>
-      </div>
-
-      {/* 3. Grid Utama 3 Kolom */}
+      {/* Grid Utama 3 Kolom */}
       <div className="max-w-[1600px] mx-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
 
         {/* KOLOM KIRI: Direktori & Navigasi */}
@@ -216,7 +190,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
                 <li><Link href="/limbus-id-tl/intervallo" className="hover:text-white transition">Intervallo</Link></li>
                 <li><Link href="/limbus-id-tl/identitas" className="hover:text-white transition">Identitas</Link></li>
                 <li><Link href="/limbus-id-tl/announcer" className="hover:text-white transition">Announcer</Link></li>
-                <li><Link href="/limbus-id-tl/ego-gift" className="hover:text-white transition">Ego Gift</Link></li>
+                <li><Link href="/limbus-id-tl/mirror-dungeon" className="hover:text-white transition">Mirror Dungeon</Link></li>
                 <li><Link href="/limbus-id-tl/lirik-lagu" className="hover:text-white transition">Lirik Lagu</Link></li>
               </ul>
             </div>
@@ -240,7 +214,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
           </div>
         </aside>
 
-        {/* KOLOM TENGAH: Konten Utama */}
+        {/* KOLOM TENGAH Konten Utama */}
         <main className="md:col-span-7 bg-[#14151a]/90 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur">
           {children}
         </main>
@@ -249,7 +223,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         <aside className="md:col-span-3 space-y-4">
           <div className="bg-[#14151a]/90 border border-[#7f1d1d] rounded overflow-hidden backdrop-blur">
             <div className="bg-[#7f1d1d]/40 border-b border-[#7f1d1d] px-3 py-1.5 font-bold text-xs text-red-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Pengumuman Proyek</span>
+              <span>Pengumuman</span>
               <span className="text-[10px] bg-red-950 text-red-300 px-1 rounded">INFO</span>
             </div>
             <div className="p-3 text-xs space-y-2 text-[#a1a1aa]">
@@ -258,7 +232,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
             </div>
           </div>
 
-          {/* WIDGET LEADERBOARD (TOP 1-10) */}
+          {/* WIDGET LEADERBOARD */}
           <div className="bg-[#14151a]/90 border border-[#27272a] rounded overflow-hidden backdrop-blur shadow-lg">
             <div className="bg-[#18181b] border-b border-[#27272a] px-3 py-2 flex justify-between items-center">
               <span className="font-bold text-xs text-amber-400 uppercase tracking-wider">

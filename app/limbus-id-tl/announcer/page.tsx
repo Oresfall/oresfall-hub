@@ -4,18 +4,18 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-interface Episode {
+interface AnnouncerContent {
   id: string;
-  canto_name: string;
-  episode_name: string;
+  announcer_name: string;
+  content_name: string;
   original_file_url: string;
   banner_url?: string;
   is_completed?: boolean;
 }
 
-interface Submission {
+interface AnnouncerSubmission {
   id: string;
-  episode_id?: string;
+  content_id?: string;
   file_name: string;
   file_url: string;
   status: string;
@@ -24,11 +24,11 @@ interface Submission {
   created_at: string;
 }
 
-export default function CantoTranslationPage() {
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [selectedCanto, setSelectedCanto] = useState<string>('');
-  const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+export default function AnnouncerTranslationPage() {
+  const [contents, setContents] = useState<AnnouncerContent[]>([]);
+  const [selectedAnnouncer, setSelectedAnnouncer] = useState<string>('');
+  const [selectedContent, setSelectedContent] = useState<AnnouncerContent | null>(null);
+  const [submissions, setSubmissions] = useState<AnnouncerSubmission[]>([]);
   const [originalJson, setOriginalJson] = useState<string>('');
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -36,24 +36,24 @@ export default function CantoTranslationPage() {
   // Modal States
   const [showAddBannerModal, setShowAddBannerModal] = useState(false);
   const [showAddContentModal, setShowAddContentModal] = useState(false);
-  const [showEditCantoModal, setShowEditCantoModal] = useState(false);
-  const [showEditEpisodeModal, setShowEditEpisodeModal] = useState(false);
+  const [showEditAnnouncerModal, setShowEditAnnouncerModal] = useState(false);
+  const [showEditContentModal, setShowEditContentModal] = useState(false);
   
   // Edit & Input States
-  const [targetCantoName, setTargetCantoName] = useState('');
-  const [editingEpisode, setEditingEpisode] = useState<Episode | null>(null);
+  const [targetAnnouncerName, setTargetAnnouncerName] = useState('');
+  const [editingContent, setEditingContent] = useState<AnnouncerContent | null>(null);
 
-  const [cantoName, setCantoName] = useState('');
-  const [episodeName, setEpisodeName] = useState('');
+  const [announcerName, setAnnouncerName] = useState('');
+  const [contentName, setContentName] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
-  const [targetCantoSelect, setTargetCantoSelect] = useState('');
+  const [targetAnnouncerSelect, setTargetAnnouncerSelect] = useState('');
   
   const [adminFile, setAdminFile] = useState<{ name: string; content: any } | null>(null);
   const [userFile, setUserFile] = useState<{ name: string; content: any } | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchEpisodes();
+    fetchContents();
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -86,33 +86,33 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const fetchEpisodes = async () => {
-    const { data: epData } = await supabase.from('episodes').select('*').order('canto_name');
-    const { data: subData } = await supabase.from('submissions').select('episode_id, status').eq('status', 'approved');
+  const fetchContents = async () => {
+    const { data: contentData } = await supabase.from('announcer_contents').select('*').order('announcer_name');
+    const { data: subData } = await supabase.from('announcer_submissions').select('content_id, status').eq('status', 'approved');
 
-    if (epData && epData.length > 0) {
-      const approvedEpIds = new Set(subData?.map((s) => s.episode_id) || []);
-      const enrichedEpisodes = epData.map((ep) => ({
-        ...ep,
-        is_completed: approvedEpIds.has(ep.id),
+    if (contentData && contentData.length > 0) {
+      const approvedIds = new Set(subData?.map((s) => s.content_id) || []);
+      const enrichedContents = contentData.map((item) => ({
+        ...item,
+        is_completed: approvedIds.has(item.id),
       }));
 
-      setEpisodes(enrichedEpisodes);
-      if (!selectedCanto) {
-        setSelectedCanto(enrichedEpisodes[0].canto_name);
+      setContents(enrichedContents);
+      if (!selectedAnnouncer) {
+        setSelectedAnnouncer(enrichedContents[0].announcer_name);
       }
     } else {
-      setEpisodes([]);
-      setSelectedCanto('');
+      setContents([]);
+      setSelectedAnnouncer('');
     }
   };
 
-  const selectEpisode = async (ep: Episode) => {
-    setSelectedEpisode(ep);
+  const selectContent = async (item: AnnouncerContent) => {
+    setSelectedContent(item);
 
-    if (ep.original_file_url) {
+    if (item.original_file_url) {
       try {
-        const cacheBusterUrl = `${ep.original_file_url}?t=${Date.now()}`;
+        const cacheBusterUrl = `${item.original_file_url}?t=${Date.now()}`;
         const res = await fetch(cacheBusterUrl, { cache: 'no-store' });
         const text = await res.text();
         try {
@@ -129,19 +129,19 @@ export default function CantoTranslationPage() {
     }
 
     const { data } = await supabase
-      .from('submissions')
+      .from('announcer_submissions')
       .select('*')
-      .eq('episode_id', ep.id)
+      .eq('content_id', item.id)
       .order('created_at', { ascending: false });
 
     if (data) setSubmissions(data);
   };
 
-  const handleUpdateSubmissionStatus = async (sub: Submission, newStatus: 'approved' | 'rejected') => {
+  const handleUpdateSubmissionStatus = async (sub: AnnouncerSubmission, newStatus: 'approved' | 'rejected') => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('submissions')
+        .from('announcer_submissions')
         .update({ status: newStatus })
         .eq('id', sub.id);
 
@@ -184,8 +184,8 @@ export default function CantoTranslationPage() {
         alert('Submission ditolak.');
       }
 
-      await fetchEpisodes();
-      if (selectedEpisode) await selectEpisode(selectedEpisode);
+      await fetchContents();
+      if (selectedContent) await selectContent(selectedContent);
 
     } catch (err: any) {
       alert('Gagal memperbarui status: ' + err.message);
@@ -199,10 +199,10 @@ export default function CantoTranslationPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('episodes').insert([
+      const { error } = await supabase.from('announcer_contents').insert([
         {
-          canto_name: cantoName,
-          episode_name: 'Episode 1',
+          announcer_name: announcerName,
+          content_name: 'Content 1',
           banner_url: bannerUrl,
           original_file_url: '',
         },
@@ -210,10 +210,10 @@ export default function CantoTranslationPage() {
       if (error) throw error;
 
       setShowAddBannerModal(false);
-      setCantoName('');
+      setAnnouncerName('');
       setBannerUrl('');
-      await fetchEpisodes();
-      alert('Banner Canto berhasil ditambahkan!');
+      await fetchContents();
+      alert('Banner Announcer berhasil ditambahkan!');
     } catch (err: any) {
       alert('Gagal membuat Banner: ' + err.message);
     } finally {
@@ -224,32 +224,32 @@ export default function CantoTranslationPage() {
   const handleAddContentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminFile) return alert('Pilih file JSON mentah!');
-    if (!targetCantoSelect) return alert('Pilih Canto!');
+    if (!targetAnnouncerSelect) return alert('Pilih Announcer!');
     setLoading(true);
 
     try {
-      const currentBanner = episodes.find((ep) => ep.canto_name === targetCantoSelect)?.banner_url || '';
+      const currentBanner = contents.find((item) => item.announcer_name === targetAnnouncerSelect)?.banner_url || '';
 
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'admin_original',
-          cantoName: targetCantoSelect,
-          episodeName,
+          type: 'admin_announcer_original',
+          announcerName: targetAnnouncerSelect,
+          contentName,
           bannerUrl: currentBanner,
           fileName: adminFile.name,
           jsonContent: adminFile.content,
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal membuat Content Episode baru');
+      if (!res.ok) throw new Error('Gagal membuat Content baru');
 
       setShowAddContentModal(false);
-      setEpisodeName('');
+      setContentName('');
       setAdminFile(null);
-      await fetchEpisodes();
-      alert('Content Episode berhasil ditambahkan!');
+      await fetchContents();
+      alert('Content Announcer berhasil ditambahkan!');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -257,20 +257,20 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const handleEditCantoSubmit = async (e: React.FormEvent) => {
+  const handleEditAnnouncerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('episodes')
-        .update({ canto_name: cantoName, banner_url: bannerUrl })
-        .eq('canto_name', targetCantoName);
+        .from('announcer_contents')
+        .update({ announcer_name: announcerName, banner_url: bannerUrl })
+        .eq('announcer_name', targetAnnouncerName);
 
       if (error) throw error;
-      if (selectedCanto === targetCantoName) setSelectedCanto(cantoName);
+      if (selectedAnnouncer === targetAnnouncerName) setSelectedAnnouncer(announcerName);
 
-      setShowEditCantoModal(false);
-      await fetchEpisodes();
+      setShowEditAnnouncerModal(false);
+      await fetchContents();
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -278,9 +278,9 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const handleEditEpisodeSubmit = async (e: React.FormEvent) => {
+  const handleEditContentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingEpisode) return;
+    if (!editingContent) return;
     setLoading(true);
     try {
       if (adminFile) {
@@ -288,30 +288,30 @@ export default function CantoTranslationPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'admin_original',
-            episodeId: editingEpisode.id,
-            cantoName: editingEpisode.canto_name,
-            episodeName,
-            bannerUrl: editingEpisode.banner_url,
+            type: 'admin_announcer_original',
+            contentId: editingContent.id,
+            announcerName: editingContent.announcer_name,
+            contentName,
+            bannerUrl: editingContent.banner_url,
             fileName: adminFile.name,
             jsonContent: adminFile.content,
           }),
         });
-        if (!res.ok) throw new Error('Gagal memperbarui file episode');
+        if (!res.ok) throw new Error('Gagal memperbarui file content');
       } else {
         const { error } = await supabase
-          .from('episodes')
-          .update({ episode_name: episodeName })
-          .eq('id', editingEpisode.id);
+          .from('announcer_contents')
+          .update({ content_name: contentName })
+          .eq('id', editingContent.id);
 
         if (error) throw error;
       }
 
-      setShowEditEpisodeModal(false);
-      await fetchEpisodes();
+      setShowEditContentModal(false);
+      await fetchContents();
 
-      if (selectedEpisode?.id === editingEpisode.id) {
-        await selectEpisode({ ...editingEpisode, episode_name: episodeName });
+      if (selectedContent?.id === editingContent.id) {
+        await selectContent({ ...editingContent, content_name: contentName });
       }
     } catch (err: any) {
       alert(err.message);
@@ -320,46 +320,46 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const handleDeleteCanto = async (cantoToDelete: string, e: React.MouseEvent) => {
+  const handleDeleteAnnouncer = async (announcerToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`PERINGATAN: Menghapus "${cantoToDelete}" akan menghapus SELURUH episode dan terjemahan di dalam Canto ini.\n\nYakin ingin melanjutkan?`)) return;
+    if (!confirm(`PERINGATAN: Menghapus "${announcerToDelete}" akan menghapus SELURUH content dan terjemahan di dalamnya.\n\nYakin ingin melanjutkan?`)) return;
 
     setLoading(true);
     try {
-      const cantoEpisodes = episodes.filter((ep) => ep.canto_name === cantoToDelete);
-      const episodeIds = cantoEpisodes.map((ep) => ep.id);
+      const announcerItems = contents.filter((item) => item.announcer_name === announcerToDelete);
+      const contentIds = announcerItems.map((item) => item.id);
 
-      if (episodeIds.length > 0) {
-        await supabase.from('submissions').delete().in('episode_id', episodeIds);
+      if (contentIds.length > 0) {
+        await supabase.from('announcer_submissions').delete().in('content_id', contentIds);
       }
 
-      const { error } = await supabase.from('episodes').delete().eq('canto_name', cantoToDelete);
+      const { error } = await supabase.from('announcer_contents').delete().eq('announcer_name', announcerToDelete);
       if (error) throw error;
 
-      if (selectedCanto === cantoToDelete) {
-        setSelectedCanto('');
-        setSelectedEpisode(null);
+      if (selectedAnnouncer === announcerToDelete) {
+        setSelectedAnnouncer('');
+        setSelectedContent(null);
       }
 
-      fetchEpisodes();
-      alert(`Banner Canto "${cantoToDelete}" berhasil dihapus.`);
+      fetchContents();
+      alert(`Banner Announcer "${announcerToDelete}" berhasil dihapus.`);
     } catch (err: any) {
-      alert('Gagal menghapus Canto: ' + err.message);
+      alert('Gagal menghapus Announcer: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteEpisode = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteContent = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Yakin ingin menghapus episode ini beserta semua terjemahannya?')) return;
+    if (!confirm('Yakin ingin menghapus content ini beserta semua terjemahannya?')) return;
 
     setLoading(true);
     try {
-      await supabase.from('submissions').delete().eq('episode_id', id);
-      await supabase.from('episodes').delete().eq('id', id);
-      fetchEpisodes();
-      if (selectedEpisode?.id === id) setSelectedEpisode(null);
+      await supabase.from('announcer_submissions').delete().eq('content_id', id);
+      await supabase.from('announcer_contents').delete().eq('id', id);
+      fetchContents();
+      if (selectedContent?.id === id) setSelectedContent(null);
     } catch (err: any) {
       alert('Gagal menghapus: ' + err.message);
     } finally {
@@ -369,7 +369,7 @@ export default function CantoTranslationPage() {
 
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userFile || !selectedEpisode) return alert('Pilih file JSON terjemahan!');
+    if (!userFile || !selectedContent) return alert('Pilih file JSON terjemahan!');
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -379,8 +379,8 @@ export default function CantoTranslationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'user_submission',
-          episodeId: selectedEpisode.id,
+          type: 'user_announcer_submission',
+          contentId: selectedContent.id,
           fileName: userFile.name,
           jsonContent: userFile.content,
           authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
@@ -390,7 +390,7 @@ export default function CantoTranslationPage() {
 
       if (!res.ok) throw new Error('Gagal submit terjemahan');
       setUserFile(null);
-      selectEpisode(selectedEpisode);
+      selectContent(selectedContent);
       alert('Terjemahan berhasil dikirim!');
     } catch (err: any) {
       alert(err.message);
@@ -399,8 +399,8 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)));
-  const currentEpisodes = episodes.filter((ep) => ep.canto_name === selectedCanto);
+  const announcersList = Array.from(new Set(contents.map((item) => item.announcer_name)));
+  const currentContents = contents.filter((item) => item.announcer_name === selectedAnnouncer);
 
   return (
     <div className="flex h-screen bg-[#0d0e10] text-zinc-300 text-xs font-sans overflow-hidden">
@@ -412,27 +412,27 @@ export default function CantoTranslationPage() {
             &larr; Layar Utama
           </Link>
           <h1 className="font-bold text-red-500 text-sm uppercase tracking-wider border-b border-[#222327] pb-2">
-            CANTO STORY HUB
+            ANNOUNCER HUB
           </h1>
 
-          {/* LIST BANNER CANTO */}
+          {/* LIST BANNER ANNOUNCER */}
           <div className="space-y-3 overflow-y-auto pr-2 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-wider px-1">Pilih Canto</p>
-            {cantosList.map((canto) => {
-              const cantoEps = episodes.filter((e) => e.canto_name === canto);
-              const totalEps = cantoEps.length;
-              const completedEps = cantoEps.filter((e) => e.is_completed).length;
-              const banner = cantoEps.find((e) => e.banner_url)?.banner_url;
+            <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-wider px-1">Pilih Announcer</p>
+            {announcersList.map((announcer) => {
+              const announcerItems = contents.filter((e) => e.announcer_name === announcer);
+              const totalItems = announcerItems.length;
+              const completedItems = announcerItems.filter((e) => e.is_completed).length;
+              const banner = announcerItems.find((e) => e.banner_url)?.banner_url;
 
               return (
                 <div
-                  key={canto}
+                  key={announcer}
                   onClick={() => {
-                    setSelectedCanto(canto);
-                    setSelectedEpisode(null);
+                    setSelectedAnnouncer(announcer);
+                    setSelectedContent(null);
                   }}
                   className={`group relative h-20 rounded-lg border-2 overflow-hidden cursor-pointer transition-all shadow-md ${
-                    selectedCanto === canto
+                    selectedAnnouncer === announcer
                       ? 'border-red-600 ring-2 ring-red-600/30'
                       : 'border-[#2a2b30] hover:border-zinc-500'
                   }`}
@@ -447,10 +447,10 @@ export default function CantoTranslationPage() {
 
                   <div className="relative z-10 h-full flex flex-col items-center justify-center p-2 text-center">
                     <span className="font-extrabold text-amber-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] text-xs uppercase tracking-wider">
-                      {canto}
+                      {announcer}
                     </span>
                     <span className="text-[10px] font-bold text-zinc-300 bg-black/60 px-2 py-0.5 rounded-full mt-1 border border-zinc-700/50">
-                      Progress: {completedEps}/{totalEps}
+                      Progress: {completedItems}/{totalItems}
                     </span>
                   </div>
 
@@ -459,17 +459,17 @@ export default function CantoTranslationPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTargetCantoName(canto);
-                          setCantoName(canto);
+                          setTargetAnnouncerName(announcer);
+                          setAnnouncerName(announcer);
                           setBannerUrl(banner || '');
-                          setShowEditCantoModal(true);
+                          setShowEditAnnouncerModal(true);
                         }}
                         className="bg-black/80 hover:bg-black text-amber-400 text-[10px] px-1.5 py-0.5 rounded border border-amber-500/40 font-bold"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={(e) => handleDeleteCanto(canto, e)}
+                        onClick={(e) => handleDeleteAnnouncer(announcer, e)}
                         className="bg-red-950/90 hover:bg-red-800 text-red-200 text-[10px] px-1.5 py-0.5 rounded border border-red-500/40 font-bold"
                       >
                         Hapus
@@ -487,7 +487,7 @@ export default function CantoTranslationPage() {
           <div className="pt-3 border-t border-[#222327] space-y-2">
             <button
               onClick={() => {
-                setCantoName('');
+                setAnnouncerName('');
                 setBannerUrl('');
                 setShowAddBannerModal(true);
               }}
@@ -497,8 +497,8 @@ export default function CantoTranslationPage() {
             </button>
             <button
               onClick={() => {
-                setTargetCantoSelect(selectedCanto || cantosList[0] || '');
-                setEpisodeName('');
+                setTargetAnnouncerSelect(selectedAnnouncer || announcersList[0] || '');
+                setContentName('');
                 setAdminFile(null);
                 setShowAddContentModal(true);
               }}
@@ -512,11 +512,11 @@ export default function CantoTranslationPage() {
 
       {/* AREA KANAN */}
       <main className="flex-1 p-6 overflow-y-auto space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {!selectedEpisode ? (
+        {!selectedContent ? (
           <div className="space-y-4">
             <header className="border-b border-[#222327] pb-3">
-              <span className="text-red-500 font-bold uppercase text-xs">Pilih Episode</span>
-              <h2 className="text-2xl font-extrabold text-white">{selectedCanto || 'Daftar Episode'}</h2>
+              <span className="text-red-500 font-bold uppercase text-xs">Pilih Content</span>
+              <h2 className="text-2xl font-extrabold text-white">{selectedAnnouncer || 'Daftar Content'}</h2>
               
               <div className="flex items-center gap-4 mt-2 text-[11px]">
                 <div className="flex items-center gap-1.5">
@@ -531,20 +531,20 @@ export default function CantoTranslationPage() {
             </header>
 
             <div className="space-y-2 max-w-2xl">
-              {currentEpisodes.map((ep) => (
+              {currentContents.map((item) => (
                 <div
-                  key={ep.id}
-                  onClick={() => selectEpisode(ep)}
+                  key={item.id}
+                  onClick={() => selectContent(item)}
                   className="group flex items-center justify-between p-3 rounded-lg bg-[#141518] border border-[#222327] hover:border-red-600/60 hover:bg-[#1a1b1f] cursor-pointer transition shadow"
                 >
                   <div className="flex items-center gap-3">
                     <span
                       className={`w-2.5 h-2.5 rounded-full transition-transform group-hover:scale-125 ${
-                        ep.is_completed ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'
+                        item.is_completed ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'
                       }`}
                     />
                     <span className="font-bold text-zinc-200 text-sm group-hover:text-amber-400 transition-colors">
-                      {ep.episode_name}
+                      {item.content_name}
                     </span>
                   </div>
 
@@ -553,16 +553,16 @@ export default function CantoTranslationPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingEpisode(ep);
-                          setEpisodeName(ep.episode_name);
-                          setShowEditEpisodeModal(true);
+                          setEditingContent(item);
+                          setContentName(item.content_name);
+                          setShowEditContentModal(true);
                         }}
                         className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-[10px] px-2 py-1 rounded border border-amber-500/40 font-bold"
                       >
-                        Edit Episode
+                        Edit Content
                       </button>
                       <button
-                        onClick={(e) => handleDeleteEpisode(ep.id, e)}
+                        onClick={(e) => handleDeleteContent(item.id, e)}
                         className="bg-red-950 hover:bg-red-800 text-red-200 text-[10px] px-2 py-1 rounded border border-red-500/40 font-bold"
                       >
                         Hapus
@@ -572,8 +572,8 @@ export default function CantoTranslationPage() {
                 </div>
               ))}
 
-              {currentEpisodes.length === 0 && (
-                <p className="text-zinc-500 py-8">Belum ada episode di Canto ini.</p>
+              {currentContents.length === 0 && (
+                <p className="text-zinc-500 py-8">Belum ada content di Announcer ini.</p>
               )}
             </div>
           </div>
@@ -581,20 +581,20 @@ export default function CantoTranslationPage() {
           <div className="space-y-6">
             <header className="border-b border-[#222327] pb-3">
               <button
-                onClick={() => setSelectedEpisode(null)}
+                onClick={() => setSelectedContent(null)}
                 className="text-red-400 hover:text-red-300 font-bold mb-2 block transition"
               >
-                &larr; Kembali ke List Episode
+                &larr; Kembali ke List Content
               </button>
-              <span className="text-red-500 font-bold uppercase">{selectedEpisode.canto_name}</span>
-              <h2 className="text-2xl font-bold text-white">{selectedEpisode.episode_name}</h2>
+              <span className="text-red-500 font-bold uppercase">{selectedContent.announcer_name}</span>
+              <h2 className="text-2xl font-bold text-white">{selectedContent.content_name}</h2>
             </header>
 
             {/* PREVIEW JSON */}
             <section className="bg-[#141518] border border-[#222327] rounded-lg overflow-hidden shadow-xl">
               <div className="bg-[#1a1b1f] px-4 py-2.5 border-b border-[#222327] flex justify-between items-center">
                 <span className="font-bold text-amber-400">
-                  File Mentah Original: <span className="text-zinc-200 font-mono text-[11px] ml-1">{selectedEpisode.original_file_url?.split('/').pop() || 'data.json'}</span>
+                  File Mentah Original: <span className="text-zinc-200 font-mono text-[11px] ml-1">{selectedContent.original_file_url?.split('/').pop() || 'data.json'}</span>
                 </span>
                 <span className="text-[10px] text-zinc-500 uppercase font-mono">READ-ONLY JSON</span>
               </div>
@@ -605,16 +605,16 @@ export default function CantoTranslationPage() {
             </section>
 
             {/* FORM SUBMIT TRANSLATION / STATUS COMPLETED */}
-            {selectedEpisode.is_completed ? (
+            {selectedContent.is_completed ? (
               <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-3">
                   <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" />
                   <div>
                     <h3 className="font-bold text-emerald-400 text-sm">
-                      Terjemahan Episode Ini Sudah Selesai & Disetujui
+                      Terjemahan Content Ini Sudah Selesai & Disetujui
                     </h3>
                     <p className="text-zinc-400 text-xs mt-0.5">
-                      Submission baru sudah ditutup untuk episode ini.
+                      Submission baru sudah ditutup untuk content ini.
                     </p>
                   </div>
                 </div>
@@ -624,7 +624,7 @@ export default function CantoTranslationPage() {
               </section>
             ) : (
               <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
-                <h3 className="font-bold text-red-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
+                <h3 className="font-bold text-red-400">Submit Terjemahan Baru untuk {selectedContent.content_name}</h3>
                 <form onSubmit={handleUserSubmit} className="flex items-center gap-3">
                   <input
                     type="file"
@@ -723,27 +723,27 @@ export default function CantoTranslationPage() {
         )}
       </main>
 
-      {/* MODAL 1: TAMBAH BANNER CANTO */}
+      {/* MODAL 1: TAMBAH BANNER ANNOUNCER */}
       {showAddBannerModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Tambah Banner Canto</h3>
+            <h3 className="text-amber-400 font-bold text-sm">Admin: Tambah Banner Announcer</h3>
 
             <form onSubmit={handleAddBannerSubmit} className="space-y-3">
               <div>
-                <label className="block text-zinc-400 mb-1">Nama Canto</label>
+                <label className="block text-zinc-400 mb-1">Nama Announcer</label>
                 <input
                   type="text"
-                  placeholder="misal: Canto 1"
-                  value={cantoName}
-                  onChange={(e) => setCantoName(e.target.value)}
+                  placeholder="misal: Malkuth"
+                  value={announcerName}
+                  onChange={(e) => setAnnouncerName(e.target.value)}
                   className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1">URL Gambar Banner Canto</label>
+                <label className="block text-zinc-400 mb-1">URL Gambar Banner Announcer</label>
                 <input
                   type="url"
                   placeholder="https://example.com/banner.png"
@@ -775,37 +775,37 @@ export default function CantoTranslationPage() {
         </div>
       )}
 
-      {/* MODAL 2: TAMBAH CONTENT EPISODE */}
+      {/* MODAL 2: TAMBAH CONTENT */}
       {showAddContentModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-red-400 font-bold text-sm">Admin: Tambah Content Episode Baru</h3>
+            <h3 className="text-red-400 font-bold text-sm">Admin: Tambah Content Baru</h3>
 
             <form onSubmit={handleAddContentSubmit} className="space-y-3">
               <div>
-                <label className="block text-zinc-400 mb-1">Pilih Canto Target</label>
+                <label className="block text-zinc-400 mb-1">Pilih Announcer Target</label>
                 <select
-                  value={targetCantoSelect}
-                  onChange={(e) => setTargetCantoSelect(e.target.value)}
+                  value={targetAnnouncerSelect}
+                  onChange={(e) => setTargetAnnouncerSelect(e.target.value)}
                   className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
                   required
                 >
-                  <option value="">-- Pilih Canto --</option>
-                  {cantosList.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  <option value="">-- Pilih Announcer --</option>
+                  {announcersList.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1">Nama Episode</label>
+                <label className="block text-zinc-400 mb-1">Nama Content</label>
                 <input
                   type="text"
-                  placeholder="misal: Episode 1"
-                  value={episodeName}
-                  onChange={(e) => setEpisodeName(e.target.value)}
+                  placeholder="misal: Voice Pack 1"
+                  value={contentName}
+                  onChange={(e) => setContentName(e.target.value)}
                   className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
                   required
                 />
@@ -850,25 +850,25 @@ export default function CantoTranslationPage() {
         </div>
       )}
 
-      {/* MODAL EDIT CANTO */}
-      {showEditCantoModal && (
+      {/* MODAL EDIT ANNOUNCER */}
+      {showEditAnnouncerModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit Banner & Nama {targetCantoName}</h3>
+            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit Banner & Nama {targetAnnouncerName}</h3>
 
-            <form onSubmit={handleEditCantoSubmit} className="space-y-3">
+            <form onSubmit={handleEditAnnouncerSubmit} className="space-y-3">
               <div>
-                <label className="block text-zinc-400 mb-1">Nama Canto</label>
+                <label className="block text-zinc-400 mb-1">Nama Announcer</label>
                 <input
                   type="text"
-                  value={cantoName}
-                  onChange={(e) => setCantoName(e.target.value)}
+                  value={announcerName}
+                  onChange={(e) => setAnnouncerName(e.target.value)}
                   className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
                   required
                 />
               </div>
               <div>
-                <label className="block text-zinc-400 mb-1">URL Gambar Banner Canto</label>
+                <label className="block text-zinc-400 mb-1">URL Gambar Banner Announcer</label>
                 <input
                   type="url"
                   value={bannerUrl}
@@ -881,7 +881,7 @@ export default function CantoTranslationPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowEditCantoModal(false)}
+                  onClick={() => setShowEditAnnouncerModal(false)}
                   className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
                 >
                   Batal
@@ -899,19 +899,19 @@ export default function CantoTranslationPage() {
         </div>
       )}
 
-      {/* MODAL EDIT EPISODE */}
-      {showEditEpisodeModal && (
+      {/* MODAL EDIT CONTENT */}
+      {showEditContentModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit {editingEpisode?.episode_name}</h3>
+            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit {editingContent?.content_name}</h3>
 
-            <form onSubmit={handleEditEpisodeSubmit} className="space-y-3">
+            <form onSubmit={handleEditContentSubmit} className="space-y-3">
               <div>
-                <label className="block text-zinc-400 mb-1">Nama Episode</label>
+                <label className="block text-zinc-400 mb-1">Nama Content</label>
                 <input
                   type="text"
-                  value={episodeName}
-                  onChange={(e) => setEpisodeName(e.target.value)}
+                  value={contentName}
+                  onChange={(e) => setContentName(e.target.value)}
                   className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
                   required
                 />
@@ -936,7 +936,7 @@ export default function CantoTranslationPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowEditEpisodeModal(false)}
+                  onClick={() => setShowEditContentModal(false)}
                   className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
                 >
                   Batal

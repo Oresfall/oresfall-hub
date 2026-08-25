@@ -595,32 +595,51 @@ export default function IntervalloTranslationPage() {
               </div>
             </section>
 
-            {/* FORM SUBMIT */}
-            <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
-              <h3 className="font-bold text-amber-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
-              <form onSubmit={handleUserSubmit} className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const r = new FileReader();
-                      r.onload = (ev) => setUserFile({ name: file.name, content: JSON.parse(ev.target?.result as string) });
-                      r.readAsText(file);
-                    }
-                  }}
-                  className="text-xs text-zinc-400 file:bg-[#222327] file:text-zinc-200 file:border-0 file:px-3 file:py-1.5 file:rounded hover:file:bg-[#2e3035] cursor-pointer"
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !userFile}
-                  className="bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-800 text-white font-bold px-4 py-1.5 rounded transition"
-                >
-                  {loading ? 'Uploading...' : 'Submit Terjemahan'}
-                </button>
-              </form>
-            </section>
+            {/* FORM SUBMIT / BANNER COMPLETED */}
+            {selectedEpisode.is_completed ? (
+              <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" />
+                  <div>
+                    <h3 className="font-bold text-emerald-400 text-sm">
+                      Terjemahan Episode Ini Sudah Selesai & Disetujui
+                    </h3>
+                    <p className="text-zinc-400 text-xs mt-0.5">
+                      Submission baru sudah ditutup untuk episode ini.
+                    </p>
+                  </div>
+                </div>
+                <span className="bg-emerald-950 text-emerald-400 border border-emerald-700/50 px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider">
+                  COMPLETED
+                </span>
+              </section>
+            ) : (
+              <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
+                <h3 className="font-bold text-amber-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
+                <form onSubmit={handleUserSubmit} className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const r = new FileReader();
+                        r.onload = (ev) => setUserFile({ name: file.name, content: JSON.parse(ev.target?.result as string) });
+                        r.readAsText(file);
+                      }
+                    }}
+                    className="text-xs text-zinc-400 file:bg-[#222327] file:text-zinc-200 file:border-0 file:px-3 file:py-1.5 file:rounded hover:file:bg-[#2e3035] cursor-pointer"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !userFile}
+                    className="bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-800 text-white font-bold px-4 py-1.5 rounded transition"
+                  >
+                    {loading ? 'Uploading...' : 'Submit Terjemahan'}
+                  </button>
+                </form>
+              </section>
+            )}
 
             {/* DAFTAR REVIEW SUBMISSION */}
             <section className="space-y-3">

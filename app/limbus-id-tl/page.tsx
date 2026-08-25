@@ -35,7 +35,7 @@ const TRANSLATION_CATEGORIES = [
     id: 'ego-gift',
     title: 'MIRROR DUNGEON',
     subtitle: 'EGO Gift & Themepack',
-    link: '/limbus-id-tl/ego-gift',
+    link: '/limbus-id-tl/mirror-dungeon',
     bgImage: 'https://media.tenor.com/GbSeQtLR5JoAAAAe/mirror-dungeon-situation-is-crazy-hos-ryoshu.png'
   },
   {
@@ -55,6 +55,10 @@ const FAQS = [
   {
     q: "Apakah translasi bisa dipakai di Limbus HP?",
     a: "Translasi Indonesia hanya dapat dipakai di Limbus Steam ya, untuk yang versi HP belum tersedia."
+  },
+  {
+    q: "Aman tidak jika memakai mod ini?",
+    a: "Fitur custom language sudah di support langsung dari pihak Developer-nya ya, jadinya aman."
   }
 ];
 
@@ -113,7 +117,7 @@ export default function LimbusWikiMainPage() {
 
       <section className="bg-[#18181b]/60 border border-[#27272a] rounded p-4">
         <h2 className="text-[#ef4444] font-bold text-sm tracking-wider uppercase border-b border-[#27272a] pb-2 mb-3">
-            Tentang Fan-Translation
+            Tentang Indonesia Limbus Translation
         </h2>
         <p className="text-xs text-[#a1a1aa] leading-relaxed mb-4">
             Wiki ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
