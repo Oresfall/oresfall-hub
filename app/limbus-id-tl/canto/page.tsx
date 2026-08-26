@@ -87,8 +87,17 @@ export default function CantoTranslationPage() {
   };
 
   const fetchEpisodes = async () => {
-    const { data: epData } = await supabase.from('episodes').select('*').order('canto_name');
-    const { data: subData } = await supabase.from('submissions').select('episode_id, status').eq('status', 'approved');
+    const { data: epData } = await supabase
+      .from('episodes')
+      .select('*')
+      .not('canto_name', 'is', null)
+      .neq('canto_name', '')
+      .order('canto_name');
+      
+    const { data: subData } = await supabase
+      .from('submissions')
+      .select('episode_id, status')
+      .eq('status', 'approved');
 
     if (epData && epData.length > 0) {
       const approvedEpIds = new Set(subData?.map((s) => s.episode_id) || []);
@@ -194,7 +203,6 @@ export default function CantoTranslationPage() {
     }
   };
 
-  // HANDLER ACTION FORM
   const handleAddBannerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -482,7 +490,7 @@ export default function CantoTranslationPage() {
           </div>
         </div>
 
-        {/* BOTTOM SIDEBAR (DUA TOMBOL TERPISAH) */}
+        {/* BOTTOM SIDEBAR */}
         {isAdmin && (
           <div className="pt-3 border-t border-[#222327] space-y-2">
             <button
@@ -850,7 +858,7 @@ export default function CantoTranslationPage() {
         </div>
       )}
 
-      {/* MODAL EDIT CANTO */}
+      {/* MODAL 3: EDIT CANTO */}
       {showEditCantoModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
@@ -899,7 +907,7 @@ export default function CantoTranslationPage() {
         </div>
       )}
 
-      {/* MODAL EDIT EPISODE */}
+      {/* MODAL 4: EDIT EPISODE */}
       {showEditEpisodeModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
