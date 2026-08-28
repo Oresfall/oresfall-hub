@@ -92,7 +92,8 @@ export default function CantoTranslationPage() {
       .select('*')
       .not('canto_name', 'is', null)
       .neq('canto_name', '')
-      .order('canto_name');
+      .order('canto_name')
+      .order('created_at', { ascending: true });
       
     const { data: subData } = await supabase
       .from('submissions')
@@ -408,7 +409,11 @@ export default function CantoTranslationPage() {
   };
 
   const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)));
-  const currentEpisodes = episodes.filter((ep) => ep.canto_name === selectedCanto);
+  
+  // Natural sort untuk memastikan urutan episode (Episode 1, Episode 2, Episode 3, ...)
+  const currentEpisodes = episodes
+    .filter((ep) => ep.canto_name === selectedCanto)
+    .sort((a, b) => a.episode_name.localeCompare(b.episode_name, undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
     <div className="flex h-screen bg-[#0d0e10] text-zinc-300 text-xs font-sans overflow-hidden">

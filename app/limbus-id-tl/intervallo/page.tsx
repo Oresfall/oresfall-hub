@@ -404,8 +404,15 @@ export default function IntervalloTranslationPage() {
     }
   };
 
-  const intervallosList = Array.from(new Set(episodes.map((ep) => ep.intervallo_name))).filter(Boolean);
-  const currentEpisodes = episodes.filter((ep) => ep.intervallo_name === selectedIntervallo);
+  // 1. Sorting Alfabetis & Numerik untuk Daftar Intervallo
+  const intervallosList = Array.from(new Set(episodes.map((ep) => ep.intervallo_name)))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+  // 2. Sorting Alfabetis & Numerik untuk Episode di Intervallo yang dipilih
+  const currentEpisodes = episodes
+    .filter((ep) => ep.intervallo_name === selectedIntervallo)
+    .sort((a, b) => a.episode_name.localeCompare(b.episode_name, undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
     <div className="flex h-screen bg-[#0d0e10] text-zinc-300 text-xs font-sans overflow-hidden">
