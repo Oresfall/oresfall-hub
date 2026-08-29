@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import RecentActivity from '@/components/RecentActivity'; // Import komponen Aktivitas Terakhir
 
 interface LeaderboardUser {
   id: string;
@@ -219,7 +220,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
           {children}
         </main>
 
-        {/* KOLOM KANAN: Pengumuman & Leaderboard */}
+        {/* KOLOM KANAN: Pengumuman, Leaderboard & Aktivitas Terakhir */}
         <aside className="md:col-span-3 space-y-4">
           <div className="bg-[#14151a]/90 border border-[#7f1d1d] rounded overflow-hidden backdrop-blur">
             <div className="bg-[#7f1d1d]/40 border-b border-[#7f1d1d] px-3 py-1.5 font-bold text-xs text-red-400 uppercase tracking-wider flex items-center justify-between">
@@ -276,6 +277,9 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
               )}
             </div>
           </div>
+
+          {/* WIDGET AKTIVITAS TERAKHIR */}
+          <RecentActivity />
         </aside>
 
       </div>
