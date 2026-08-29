@@ -433,12 +433,19 @@ export default function IdentityTranslationPage() {
     }
   };
 
-  const handleUserSubmit = async (e: React.FormEvent) => {
+const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 1. Cek status autentikasi user terlebih dahulu
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return alert('Kamu harus login terlebih dahulu untuk mengirim terjemahan!');
+    }
+
+    // 2. Validasi kelengkapan data
     if (!userFile || !selectedContent) return alert('Pilih file JSON terjemahan!');
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
 
     try {
       const res = await fetch('/api/upload', {
@@ -464,7 +471,7 @@ export default function IdentityTranslationPage() {
       setLoading(false);
     }
   };
-
+  
   const uniqueIdentitiesList = Array.from(new Set(contents.map((c) => c.identity_name))).filter(Boolean);
   const currentSubContents = contents.filter((c) => c.identity_name === selectedIdentity);
 

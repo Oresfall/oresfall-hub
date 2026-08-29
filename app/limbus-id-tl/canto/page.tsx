@@ -32,6 +32,7 @@ export default function CantoTranslationPage() {
   const [originalJson, setOriginalJson] = useState<string>('');
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   // Modal States
   const [showAddBannerModal, setShowAddBannerModal] = useState(false);
@@ -57,12 +58,15 @@ export default function CantoTranslationPage() {
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
       verifyAdmin(user);
     };
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      verifyAdmin(session?.user || null);
+      const user = session?.user || null;
+      setCurrentUser(user);
+      verifyAdmin(user);
     });
 
     return () => authListener.subscription.unsubscribe();
@@ -147,51 +151,60 @@ export default function CantoTranslationPage() {
     if (data) setSubmissions(data);
   };
 
+  // HANDLER UPDATE STATUS (JIKA REJECTED -> HAPUS PERMANEN DARI DATABASE)
   const handleUpdateSubmissionStatus = async (sub: Submission, newStatus: 'approved' | 'rejected') => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('submissions')
-        .update({ status: newStatus })
-        .eq('id', sub.id);
+      if (newStatus === 'rejected') {
+        const { error } = await supabase
+          .from('submissions')
+          .delete()
+          .eq('id', sub.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        alert('Submission ditolak dan telah dihapus dari database.');
+      } else {
+        const { error } = await supabase
+          .from('submissions')
+          .update({ status: 'approved' })
+          .eq('id', sub.id);
 
-      if (newStatus === 'approved' && sub.author_id) {
-        try {
-          const res = await fetch(`${sub.file_url}?t=${Date.now()}`, { cache: 'no-store' });
-          const json = await res.json();
-          
-          let idCount = 0;
-          if (Array.isArray(json.dataList)) {
-            idCount = json.dataList.length;
-          } else if (Array.isArray(json)) {
-            idCount = json.length;
+        if (error) throw error;
+
+        if (sub.author_id) {
+          try {
+            const res = await fetch(`${sub.file_url}?t=${Date.now()}`, { cache: 'no-store' });
+            const json = await res.json();
+            
+            let idCount = 0;
+            if (Array.isArray(json.dataList)) {
+              idCount = json.dataList.length;
+            } else if (Array.isArray(json)) {
+              idCount = json.length;
+            }
+
+            if (idCount > 0) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('contributions')
+                .eq('id', sub.author_id)
+                .single();
+
+              const currentContrib = profile?.contributions || 0;
+              const updatedContrib = currentContrib + idCount;
+
+              await supabase
+                .from('profiles')
+                .update({ contributions: updatedContrib })
+                .eq('id', sub.author_id);
+
+              alert(`Submission disetujui! +${idCount} kontribusi berhasil ditambahkan ke ${sub.author_name}.`);
+            }
+          } catch (e) {
+            console.error('Gagal menghitung ID file JSON:', e);
+            alert('Status berhasil disetujui, namun gagal menghitung poin kontribusi.');
           }
-
-          if (idCount > 0) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('contributions')
-              .eq('id', sub.author_id)
-              .single();
-
-            const currentContrib = profile?.contributions || 0;
-            const updatedContrib = currentContrib + idCount;
-
-            await supabase
-              .from('profiles')
-              .update({ contributions: updatedContrib })
-              .eq('id', sub.author_id);
-
-            alert(`Submission disetujui! +${idCount} kontribusi berhasil ditambahkan ke ${sub.author_name}.`);
-          }
-        } catch (e) {
-          console.error('Gagal menghitung ID file JSON:', e);
-          alert('Status berhasil disetujui, namun gagal menghitung poin kontribusi.');
         }
-      } else if (newStatus === 'rejected') {
-        alert('Submission ditolak.');
       }
 
       await fetchEpisodes();
@@ -376,12 +389,16 @@ export default function CantoTranslationPage() {
     }
   };
 
+  // HANDLER SUBMIT USER (MENCEGAH UPLOAD JIKA BELUM LOGIN)
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      return alert('Kamu harus login terlebih dahulu untuk mengirim terjemahan!');
+    }
+
     if (!userFile || !selectedEpisode) return alert('Pilih file JSON terjemahan!');
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
 
     try {
       const res = await fetch('/api/upload', {
@@ -392,8 +409,8 @@ export default function CantoTranslationPage() {
           episodeId: selectedEpisode.id,
           fileName: userFile.name,
           jsonContent: userFile.content,
-          authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
-          authorId: user?.id,
+          authorName: currentUser?.user_metadata?.username || currentUser?.email?.split('@')[0] || 'Translator',
+          authorId: currentUser?.id,
         }),
       });
 
@@ -410,7 +427,6 @@ export default function CantoTranslationPage() {
 
   const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)));
   
-  // Natural sort untuk memastikan urutan episode (Episode 1, Episode 2, Episode 3, ...)
   const currentEpisodes = episodes
     .filter((ep) => ep.canto_name === selectedCanto)
     .sort((a, b) => a.episode_name.localeCompare(b.episode_name, undefined, { numeric: true, sensitivity: 'base' }));
@@ -617,7 +633,7 @@ export default function CantoTranslationPage() {
               </div>
             </section>
 
-            {/* FORM SUBMIT TRANSLATION / STATUS COMPLETED */}
+            {/* FORM SUBMIT TRANSLATION / PERINGATAN LOG IN */}
             {selectedEpisode.is_completed ? (
               <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-3">
@@ -634,6 +650,12 @@ export default function CantoTranslationPage() {
                 <span className="bg-emerald-950 text-emerald-400 border border-emerald-700/50 px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider">
                   COMPLETED
                 </span>
+              </section>
+            ) : !currentUser ? (
+              <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 text-center">
+                <p className="text-zinc-400 text-xs">
+                  Kamu harus <span className="text-amber-400 font-bold">login</span> terlebih dahulu untuk dapat mengirim terjemahan.
+                </p>
               </section>
             ) : (
               <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
@@ -700,15 +722,13 @@ export default function CantoTranslationPage() {
                               Approve
                             </button>
                           )}
-                          {sub.status !== 'rejected' && (
-                            <button
-                              onClick={() => handleUpdateSubmissionStatus(sub, 'rejected')}
-                              disabled={loading}
-                              className="bg-rose-900 hover:bg-rose-800 text-rose-200 text-[10px] px-2 py-0.5 rounded font-bold transition disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleUpdateSubmissionStatus(sub, 'rejected')}
+                            disabled={loading}
+                            className="bg-rose-900 hover:bg-rose-800 text-rose-200 text-[10px] px-2 py-0.5 rounded font-bold transition disabled:opacity-50"
+                          >
+                            Reject & Hapus
+                          </button>
                         </div>
                       )}
                     </div>

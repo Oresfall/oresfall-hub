@@ -32,6 +32,7 @@ export default function IntervalloTranslationPage() {
   const [originalJson, setOriginalJson] = useState<string>('');
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   // Modal States
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -55,12 +56,15 @@ export default function IntervalloTranslationPage() {
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
       verifyAdmin(user);
     };
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      verifyAdmin(session?.user || null);
+      const user = session?.user || null;
+      setCurrentUser(user);
+      verifyAdmin(user);
     });
 
     return () => authListener.subscription.unsubscribe();
@@ -85,7 +89,6 @@ export default function IntervalloTranslationPage() {
   };
 
   const fetchEpisodes = async () => {
-    // Memastikan hanya mengambil episode yang memiliki intervallo_name (Bukan Canto)
     const { data: epData } = await supabase
       .from('episodes')
       .select('*')
@@ -372,12 +375,16 @@ export default function IntervalloTranslationPage() {
     }
   };
 
+  // HANDLER SUBMIT USER (MENCEGAH UPLOAD JIKA BELUM LOGIN)
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      return alert('Kamu harus login terlebih dahulu untuk mengirim terjemahan!');
+    }
+
     if (!userFile || !selectedEpisode) return alert('Pilih file JSON terjemahan!');
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
 
     try {
       const res = await fetch('/api/upload', {
@@ -388,8 +395,8 @@ export default function IntervalloTranslationPage() {
           episodeId: selectedEpisode.id,
           fileName: userFile.name,
           jsonContent: userFile.content,
-          authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
-          authorId: user?.id,
+          authorName: currentUser?.user_metadata?.username || currentUser?.email?.split('@')[0] || 'Translator',
+          authorId: currentUser?.id,
         }),
       });
 
@@ -404,12 +411,10 @@ export default function IntervalloTranslationPage() {
     }
   };
 
-  // 1. Sorting Alfabetis & Numerik untuk Daftar Intervallo
   const intervallosList = Array.from(new Set(episodes.map((ep) => ep.intervallo_name)))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
-  // 2. Sorting Alfabetis & Numerik untuk Episode di Intervallo yang dipilih
   const currentEpisodes = episodes
     .filter((ep) => ep.intervallo_name === selectedIntervallo)
     .sort((a, b) => a.episode_name.localeCompare(b.episode_name, undefined, { numeric: true, sensitivity: 'base' }));
@@ -602,7 +607,7 @@ export default function IntervalloTranslationPage() {
               </div>
             </section>
 
-            {/* FORM SUBMIT / BANNER COMPLETED */}
+            {/* FORM SUBMIT / BANNER COMPLETED / WARNING LOGIN */}
             {selectedEpisode.is_completed ? (
               <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-3">
@@ -620,6 +625,10 @@ export default function IntervalloTranslationPage() {
                   COMPLETED
                 </span>
               </section>
+            ) : !currentUser ? (
+              <div className="bg-[#131418] border border-[#222327] rounded-lg p-4 text-center text-zinc-400 font-medium">
+                Kamu harus <span className="text-amber-500 font-bold">login</span> terlebih dahulu untuk dapat mengirim terjemahan.
+              </div>
             ) : (
               <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
                 <h3 className="font-bold text-amber-400">Submit Terjemahan Baru untuk {selectedEpisode.episode_name}</h3>
