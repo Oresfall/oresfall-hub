@@ -27,6 +27,11 @@ export async function POST(request: Request) {
       authorId 
     } = body;
 
+    // Normalisasi fallback agar tetap mendukung jika client mengirim nama properti snake_case
+    const resolvedSongId = songId || body.song_id || contentId || episodeId;
+    const resolvedSongTitle = songTitle || body.song_title || episodeName || contentName || 'Untitled Song';
+    const resolvedAlbumName = albumName || body.album_name || 'General';
+
     const contentString = JSON.stringify(jsonContent, null, 2);
     const base64Content = Buffer.from(contentString).toString('base64');
 
@@ -34,13 +39,94 @@ export async function POST(request: Request) {
     const githubRepo = process.env.GITHUB_REPO;
     const githubToken = process.env.GITHUB_TOKEN;
 
+    // Fallback Alias ID & Name untuk Kompatibilitas Lintas Fitur
+    const resolvedEpisodeId = episodeId || songId || contentId;
+    const resolvedEpisodeName = episodeName || songTitle || contentName || itemName || 'Untitled';
+
     // ----------------------------------------------------
     // A. UPLOAD / UPDATE FILE ORIGINAL (CANTO & INTERVALLO)
     // ----------------------------------------------------
     if (type === 'admin_original') {
+      // Jika request berasal dari fitur Lagu/Songs
+      if (albumName || songTitle || songId || body.song_id || body.song_title) {
+        const targetAlbum = resolvedAlbumName;
+        const targetTitle = resolvedSongTitle;
+        const filePath = `originals/songs/${targetAlbum}/${targetTitle}/${fileName}`;
+
+        let fileSha: string | undefined = undefined;
+        try {
+          const getFileRes = await fetch(
+            `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+            {
+              headers: {
+                Authorization: `Bearer ${githubToken}`,
+                'User-Agent': 'Limbus-TL-App',
+              },
+            }
+          );
+          if (getFileRes.ok) {
+            const fileData = await getFileRes.json();
+            fileSha = fileData.sha;
+          }
+        } catch (e) {}
+
+        const ghRes = await fetch(
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${githubToken}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'Limbus-TL-App',
+            },
+            body: JSON.stringify({
+              message: resolvedSongId 
+                ? `Update Song: ${targetAlbum} - ${targetTitle}`
+                : `Add Song: ${targetAlbum} - ${targetTitle}`,
+              content: base64Content,
+              ...(fileSha && { sha: fileSha }),
+            }),
+          }
+        );
+
+        const ghData = await ghRes.json();
+        if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
+
+        if (resolvedSongId) {
+          const { data, error } = await supabase
+            .from('songs')
+            .update({
+              song_title: targetTitle,
+              album_name: targetAlbum,
+              original_file_url: ghData.content.download_url,
+            })
+            .eq('id', resolvedSongId)
+            .select()
+            .maybeSingle();
+
+          if (error) throw error;
+          return NextResponse.json({ success: true, data });
+        } else {
+          const { data, error } = await supabase
+            .from('songs')
+            .insert({
+              album_name: targetAlbum,
+              song_title: targetTitle,
+              banner_url: body.bannerUrl || body.banner_url || '',
+              original_file_url: ghData.content.download_url,
+            })
+            .select()
+            .maybeSingle();
+
+          if (error) throw error;
+          return NextResponse.json({ success: true, data });
+        }
+      }
+
+      // Logika Asli untuk Canto & Intervallo
       const storyCategory = intervalloName ? 'intervallo' : 'canto';
       const storyName = intervalloName || cantoName || 'Unknown';
-      const filePath = `originals/${storyCategory}/${storyName}/${episodeName}/${fileName}`;
+      const filePath = `originals/${storyCategory}/${storyName}/${resolvedEpisodeName}/${fileName}`;
 
       let fileSha: string | undefined = undefined;
       try {
@@ -69,9 +155,9 @@ export async function POST(request: Request) {
             'User-Agent': 'Limbus-TL-App',
           },
           body: JSON.stringify({
-            message: episodeId 
-              ? `Update original: ${storyName} - ${episodeName}`
-              : `Add original: ${storyName} - ${episodeName}`,
+            message: resolvedEpisodeId 
+              ? `Update original: ${storyName} - ${resolvedEpisodeName}`
+              : `Add original: ${storyName} - ${resolvedEpisodeName}`,
             content: base64Content,
             ...(fileSha && { sha: fileSha }),
           }),
@@ -81,9 +167,9 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
-      if (episodeId) {
+      if (resolvedEpisodeId) {
         const updatePayload: Record<string, any> = {
-          episode_name: episodeName,
+          episode_name: resolvedEpisodeName,
           original_file_url: ghData.content.download_url,
         };
         if (intervalloName) updatePayload.intervallo_name = intervalloName;
@@ -92,15 +178,15 @@ export async function POST(request: Request) {
         const { data, error } = await supabase
           .from('episodes')
           .update(updatePayload)
-          .eq('id', episodeId)
+          .eq('id', resolvedEpisodeId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
       } else {
         const insertPayload: Record<string, any> = {
-          episode_name: episodeName,
+          episode_name: resolvedEpisodeName,
           original_file_url: ghData.content.download_url,
         };
         if (intervalloName) insertPayload.intervallo_name = intervalloName;
@@ -110,7 +196,7 @@ export async function POST(request: Request) {
           .from('episodes')
           .insert(insertPayload)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -118,10 +204,11 @@ export async function POST(request: Request) {
     }
 
     // ----------------------------------------------------
-    // B. UPLOAD SUBMISSION TERJEMAHAN (CANTO & INTERVALLO)
+    // B. UPLOAD SUBMISSION TERJEMAHAN (CANTO, INTERVALLO & SONGS FALLBACK)
     // ----------------------------------------------------
     if (type === 'user_submission') {
-      const filePath = `submissions/${episodeId}/${Date.now()}_${fileName}`;
+      const targetId = resolvedEpisodeId;
+      const filePath = `submissions/${targetId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
         `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
@@ -133,7 +220,7 @@ export async function POST(request: Request) {
             'User-Agent': 'Limbus-TL-App',
           },
           body: JSON.stringify({
-            message: `Add translation for episode ID: ${episodeId}`,
+            message: `Add translation for ID: ${targetId}`,
             content: base64Content,
           }),
         }
@@ -142,17 +229,21 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const insertPayload: Record<string, any> = {
+        file_name: fileName,
+        file_url: ghData.content.download_url,
+        author_name: authorName,
+        author_id: authorId,
+      };
+
+      if (songId || body.song_id) insertPayload.song_id = songId || body.song_id;
+      else insertPayload.episode_id = targetId;
+
       const { data, error } = await supabase
         .from('submissions')
-        .insert({
-          episode_id: episodeId,
-          file_name: fileName,
-          file_url: ghData.content.download_url,
-          author_name: authorName,
-          author_id: authorId,
-        })
+        .insert(insertPayload)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return NextResponse.json({ success: true, data });
@@ -212,7 +303,7 @@ export async function POST(request: Request) {
           })
           .eq('id', contentId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -225,7 +316,7 @@ export async function POST(request: Request) {
             original_file_url: ghData.content.download_url,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -267,7 +358,7 @@ export async function POST(request: Request) {
           author_id: authorId,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return NextResponse.json({ success: true, data });
@@ -327,7 +418,7 @@ export async function POST(request: Request) {
         original_file_url: ghData.content.download_url,
       };
 
-      if (body.imageUrl) payload.image_url = body.imageUrl;
+      if (body.imageUrl || body.image_url) payload.image_url = body.imageUrl || body.image_url;
 
       if (itemId) {
         const { data, error } = await supabase
@@ -335,7 +426,7 @@ export async function POST(request: Request) {
           .update(payload)
           .eq('id', itemId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -344,7 +435,7 @@ export async function POST(request: Request) {
           .from('mirror_dungeon_contents')
           .insert(payload)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -386,7 +477,7 @@ export async function POST(request: Request) {
           author_id: authorId,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return NextResponse.json({ success: true, data });
@@ -396,7 +487,9 @@ export async function POST(request: Request) {
     // G. UPLOAD / UPDATE FILE ORIGINAL (SONGS / LYRICS)
     // ----------------------------------------------------
     if (type === 'admin_song_original') {
-      const filePath = `originals/songs/${albumName}/${songTitle}/${fileName}`;
+      const targetAlbum = resolvedAlbumName;
+      const targetTitle = resolvedSongTitle;
+      const filePath = `originals/songs/${targetAlbum}/${targetTitle}/${fileName}`;
 
       let fileSha: string | undefined = undefined;
       try {
@@ -425,9 +518,9 @@ export async function POST(request: Request) {
             'User-Agent': 'Limbus-TL-App',
           },
           body: JSON.stringify({
-            message: songId 
-              ? `Update Song: ${albumName} - ${songTitle}`
-              : `Add Song: ${albumName} - ${songTitle}`,
+            message: resolvedSongId 
+              ? `Update Song: ${targetAlbum} - ${targetTitle}`
+              : `Add Song: ${targetAlbum} - ${targetTitle}`,
             content: base64Content,
             ...(fileSha && { sha: fileSha }),
           }),
@@ -437,16 +530,17 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
-      if (songId) {
+      if (resolvedSongId) {
         const { data, error } = await supabase
           .from('songs')
           .update({
-            song_title: songTitle,
+            song_title: targetTitle,
+            album_name: targetAlbum,
             original_file_url: ghData.content.download_url,
           })
-          .eq('id', songId)
+          .eq('id', resolvedSongId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -454,13 +548,13 @@ export async function POST(request: Request) {
         const { data, error } = await supabase
           .from('songs')
           .insert({
-            album_name: albumName,
-            song_title: songTitle,
-            banner_url: body.bannerUrl || '',
+            album_name: targetAlbum,
+            song_title: targetTitle,
+            banner_url: body.bannerUrl || body.banner_url || '',
             original_file_url: ghData.content.download_url,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         return NextResponse.json({ success: true, data });
@@ -471,7 +565,8 @@ export async function POST(request: Request) {
     // H. UPLOAD SUBMISSION TERJEMAHAN (SONGS / LYRICS)
     // ----------------------------------------------------
     if (type === 'user_song_submission') {
-      const filePath = `submissions/songs/${songId}/${Date.now()}_${fileName}`;
+      const targetId = resolvedSongId;
+      const filePath = `submissions/songs/${targetId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
         `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
@@ -483,7 +578,7 @@ export async function POST(request: Request) {
             'User-Agent': 'Limbus-TL-App',
           },
           body: JSON.stringify({
-            message: `Add song translation for song ID: ${songId}`,
+            message: `Add song translation for song ID: ${targetId}`,
             content: base64Content,
           }),
         }
@@ -495,14 +590,14 @@ export async function POST(request: Request) {
       const { data, error } = await supabase
         .from('submissions')
         .insert({
-          song_id: songId,
+          song_id: targetId,
           file_name: fileName,
           file_url: ghData.content.download_url,
           author_name: authorName,
           author_id: authorId,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return NextResponse.json({ success: true, data });

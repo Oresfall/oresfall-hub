@@ -32,6 +32,7 @@ export default function SongLyricsPage() {
   const [lyricsContent, setLyricsContent] = useState<string>('');
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   // Modal States
   const [showAddBannerModal, setShowAddBannerModal] = useState(false);
@@ -57,12 +58,15 @@ export default function SongLyricsPage() {
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
       verifyAdmin(user);
     };
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      verifyAdmin(session?.user || null);
+      const user = session?.user || null;
+      setCurrentUser(user);
+      verifyAdmin(user);
     });
 
     return () => authListener.subscription.unsubscribe();
@@ -236,13 +240,17 @@ export default function SongLyricsPage() {
           type: 'admin_original',
           albumName: targetAlbumSelect,
           songTitle,
+          episodeName: songTitle,
           bannerUrl: currentBanner,
           fileName: adminFile.name,
           jsonContent: adminFile.content,
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal membuat Content Lagu baru');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Gagal membuat Content Lagu baru');
+      }
 
       setShowAddContentModal(false);
       setSongTitle('');
@@ -289,14 +297,20 @@ export default function SongLyricsPage() {
           body: JSON.stringify({
             type: 'admin_original',
             songId: editingSong.id,
+            contentId: editingSong.id,
             albumName: editingSong.album_name,
             songTitle,
+            episodeName: songTitle,
             bannerUrl: editingSong.banner_url,
             fileName: adminFile.name,
             jsonContent: adminFile.content,
           }),
         });
-        if (!res.ok) throw new Error('Gagal memperbarui file lagu');
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.error || 'Gagal memperbarui file lagu');
+        }
       } else {
         const { error } = await supabase
           .from('songs')
@@ -368,10 +382,13 @@ export default function SongLyricsPage() {
 
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      return alert('Kamu harus login terlebih dahulu untuk mengirim terjemahan!');
+    }
+
     if (!userFile || !selectedSong) return alert('Pilih file JSON terjemahan lirik!');
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
 
     try {
       const res = await fetch('/api/upload', {
@@ -382,12 +399,16 @@ export default function SongLyricsPage() {
           songId: selectedSong.id,
           fileName: userFile.name,
           jsonContent: userFile.content,
-          authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
-          authorId: user?.id,
+          authorName: currentUser?.user_metadata?.username || currentUser?.email?.split('@')[0] || 'Translator',
+          authorId: currentUser?.id,
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal submit terjemahan');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Gagal submit terjemahan');
+      }
+
       setUserFile(null);
       selectSong(selectedSong);
       alert('Terjemahan lirik berhasil dikirim!');
@@ -603,7 +624,7 @@ export default function SongLyricsPage() {
               </div>
             </section>
 
-            {/* FORM SUBMIT TRANSLATION / STATUS COMPLETED */}
+            {/* FORM SUBMIT TRANSLATION / BANNER LOGIN / COMPLETED */}
             {selectedSong.is_completed ? (
               <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-3">
@@ -621,6 +642,10 @@ export default function SongLyricsPage() {
                   COMPLETED
                 </span>
               </section>
+            ) : !currentUser ? (
+              <div className="bg-[#141518] border border-[#222327] rounded-lg p-6 text-center text-zinc-400 text-xs">
+                Kamu harus <Link href="/login" className="text-amber-500 font-bold hover:underline">login</Link> terlebih dahulu untuk dapat mengirim terjemahan.
+              </div>
             ) : (
               <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
                 <h3 className="font-bold text-red-400">Submit Terjemahan Lirik untuk {selectedSong.song_title}</h3>
