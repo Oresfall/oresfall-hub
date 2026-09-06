@@ -9,10 +9,32 @@ interface ActivityItem {
   author_name: string;
   created_at: string;
   status: string;
+  episode_id?: string | null;
+  song_id?: string | null;
+  identity_content_id?: string | null;
+  announcer_content_id?: string | null;
+  md_content_id?: string | null;
   episodes: {
     episode_name: string;
-    intervallo_name: string;
-    canto_name?: string;
+    intervallo_name?: string | null;
+    canto_name?: string | null;
+  } | null;
+  songs: {
+    song_title: string;
+    album_name?: string | null;
+  } | null;
+  identity_contents: {
+    identity_name: string;
+    sinner_name?: string | null;
+    content_name?: string | null;
+  } | null;
+  announcer_contents: {
+    announcer_name: string;
+    content_name?: string | null;
+  } | null;
+  mirror_dungeon_contents: {
+    item_name: string;
+    category?: string | null;
   } | null;
 }
 
@@ -38,8 +60,8 @@ export default function RecentActivity() {
         approvedSubs?.map((s) => s.episode_id).filter(Boolean)
       );
 
-      // 2. Ambil submission yang statusnya 'pending' / belum direview
-      // Join dengan tabel episodes
+      // 2. Ambil submission pending & join dengan semua kategori
+      // Menggunakan !fk_submissions_songs untuk menghindari ambiguitas constraint duplikat
       const { data, error } = await supabase
         .from('submissions')
         .select(`
@@ -49,26 +71,61 @@ export default function RecentActivity() {
           created_at,
           status,
           episode_id,
+          song_id,
+          identity_content_id,
+          announcer_content_id,
+          md_content_id,
           episodes (
             episode_name,
-            intervallo_name
+            intervallo_name,
+            canto_name
+          ),
+          songs!fk_submissions_songs (
+            song_title,
+            album_name
+          ),
+          identity_contents (
+            identity_name,
+            sinner_name,
+            content_name
+          ),
+          announcer_contents (
+            announcer_name,
+            content_name
+          ),
+          mirror_dungeon_contents (
+            item_name,
+            category
           )
         `)
         .eq('status', 'pending')
-        .order('created_at', { ascending: true }); // Terlama (1) ke Terbaru (10)
+        .order('created_at', { ascending: true }); // Terlama ke Terbaru
 
-      if (error) throw error;
+      if (error) {
+        console.error('Detail Error Supabase:', JSON.stringify(error, null, 2));
+        throw error;
+      }
 
       if (data) {
         // Filter out submission dari episode yang sudah COMPLETED
         const filtered = data
-          .filter((sub) => !completedEpisodeIds.has(sub.episode_id))
-          .slice(0, 10); // Ambil maksimal 10 data terlama
+          .filter((sub) => !sub.episode_id || !completedEpisodeIds.has(sub.episode_id))
+          .slice(0, 10);
 
-        // Cast type data episodes
+        // Cast & format type data
         const formatted: ActivityItem[] = filtered.map((item: any) => ({
           ...item,
           episodes: Array.isArray(item.episodes) ? item.episodes[0] : item.episodes,
+          songs: Array.isArray(item.songs) ? item.songs[0] : item.songs,
+          identity_contents: Array.isArray(item.identity_contents)
+            ? item.identity_contents[0]
+            : item.identity_contents,
+          announcer_contents: Array.isArray(item.announcer_contents)
+            ? item.announcer_contents[0]
+            : item.announcer_contents,
+          mirror_dungeon_contents: Array.isArray(item.mirror_dungeon_contents)
+            ? item.mirror_dungeon_contents[0]
+            : item.mirror_dungeon_contents,
         }));
 
         setActivities(formatted);
@@ -86,6 +143,68 @@ export default function RecentActivity() {
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev < activities.length - 1 ? prev + 1 : 0));
+  };
+
+  // Helper untuk menentukan Kategori Parent & Judul Utama
+  const getActivityDetails = (item: ActivityItem) => {
+    // 1. Jika Submission Announcer
+    if (item.announcer_contents || item.announcer_content_id) {
+      const announcer = item.announcer_contents?.announcer_name;
+      return {
+        parentName: announcer ? `ANNOUNCER (${announcer})` : 'ANNOUNCER',
+        title: item.announcer_contents?.content_name || item.file_name || 'Announcer Audio/Voice',
+      };
+    }
+
+    // 2. Jika Submission Mirror Dungeon
+    if (item.mirror_dungeon_contents || item.md_content_id) {
+      const cat = item.mirror_dungeon_contents?.category;
+      return {
+        parentName: cat ? `MIRROR DUNGEON (${cat.toUpperCase()})` : 'MIRROR DUNGEON',
+        title: item.mirror_dungeon_contents?.item_name || item.file_name || 'MD Content',
+      };
+    }
+
+    // 3. Jika Submission Identitas
+    if (item.identity_contents || item.identity_content_id) {
+      const sinner = item.identity_contents?.sinner_name;
+      return {
+        parentName: sinner ? `IDENTITAS (${sinner})` : 'IDENTITAS',
+        title: item.identity_contents?.identity_name 
+          ? `${item.identity_contents.identity_name} - ${item.identity_contents.content_name || ''}`
+          : item.file_name || 'Content Identitas',
+      };
+    }
+
+    // 4. Jika Submission Lagu
+    if (item.songs || item.song_id) {
+      return {
+        parentName: item.songs?.album_name ? `LAGU (${item.songs.album_name})` : 'LAGU',
+        title: item.songs?.song_title || item.file_name || 'Lagu Tanpa Judul',
+      };
+    }
+
+    // 5. Jika Submission Intervallo
+    if (item.episodes?.intervallo_name) {
+      return {
+        parentName: item.episodes.intervallo_name,
+        title: item.episodes.episode_name || item.file_name || 'Episode',
+      };
+    }
+
+    // 6. Jika Submission Canto
+    if (item.episodes?.canto_name) {
+      return {
+        parentName: item.episodes.canto_name,
+        title: item.episodes.episode_name || item.file_name || 'Episode',
+      };
+    }
+
+    // Fallback Default
+    return {
+      parentName: item.episodes?.intervallo_name || 'STORY',
+      title: item.episodes?.episode_name || item.file_name || 'Episode',
+    };
   };
 
   if (loading) {
@@ -108,8 +227,7 @@ export default function RecentActivity() {
   }
 
   const currentItem = activities[currentIndex];
-  const episodeName = currentItem.episodes?.episode_name || 'Episode';
-  const parentName = currentItem.episodes?.intervallo_name || 'Story';
+  const { parentName, title } = getActivityDetails(currentItem);
 
   return (
     <div className="bg-[#141518] border border-[#222327] rounded-lg p-3.5 space-y-3 shadow-md">
@@ -150,8 +268,8 @@ export default function RecentActivity() {
             <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-wide block">
               {parentName}
             </span>
-            <p className="font-bold text-zinc-200 text-xs truncate max-w-[180px]">
-              {episodeName}
+            <p className="font-bold text-zinc-200 text-xs truncate max-w-[180px]" title={title}>
+              {title}
             </p>
           </div>
           <span className="bg-amber-950/80 text-amber-400 border border-amber-800/40 text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0">
@@ -162,7 +280,7 @@ export default function RecentActivity() {
         <div className="pt-1 border-t border-[#222327]/60 flex justify-between items-end text-[10px]">
           <div>
             <span className="text-zinc-500 block text-[9px]">Translator</span>
-            <span className="font-semibold text-zinc-300">{currentItem.author_name}</span>
+            <span className="font-semibold text-zinc-300">{currentItem.author_name || 'Anonim'}</span>
           </div>
           <span className="text-zinc-500 font-mono text-[9px]">
             {new Date(currentItem.created_at).toLocaleDateString('id-ID', {
