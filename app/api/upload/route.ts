@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+// Helper untuk generate Raw GitHub URL presisi (menggunakan refs/heads/main & sanitasi path)
+function getRawGithubUrl(owner: string, repo: string, path: string, branch = 'main') {
+  const sanitizedPath = path
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `https://raw.githubusercontent.com/${owner}/${repo}/refs/heads/${branch}/${sanitizedPath}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -12,34 +22,39 @@ export async function POST(request: Request) {
       albumName,
       songTitle,
       songId,
-      mdCategory, // 'event_choice' | 'ego_gift'
-      mdThemePack, // Nama Theme Pack untuk Event Choice
-      mdTier, // Tier 1 - 5 untuk Ego Gift
+      mdCategory,
+      mdThemePack,
+      mdTier,
+      sinnerName,
+      identityName,
+      bannerUrl,
       episodeName, 
       contentName,
-      itemName, // Nama Item MD
+      itemName,
       episodeId, 
       contentId,
-      itemId, // ID record mirror_dungeon
+      itemId,
       fileName, 
       jsonContent, 
       authorName, 
       authorId 
     } = body;
 
-    // Normalisasi fallback agar tetap mendukung jika client mengirim nama properti snake_case
+    const githubOwner = process.env.GITHUB_OWNER || '';
+    const githubRepo = process.env.GITHUB_REPO || '';
+    const githubToken = process.env.GITHUB_TOKEN || '';
+
+    if (!githubOwner || !githubRepo || !githubToken) {
+      throw new Error('Environment variables GitHub (OWNER, REPO, TOKEN) belum terpasang!');
+    }
+
     const resolvedSongId = songId || body.song_id || contentId || episodeId;
     const resolvedSongTitle = songTitle || body.song_title || episodeName || contentName || 'Untitled Song';
     const resolvedAlbumName = albumName || body.album_name || 'General';
 
-    const contentString = JSON.stringify(jsonContent, null, 2);
+    const contentString = typeof jsonContent === 'string' ? jsonContent : JSON.stringify(jsonContent, null, 2);
     const base64Content = Buffer.from(contentString).toString('base64');
 
-    const githubOwner = process.env.GITHUB_OWNER;
-    const githubRepo = process.env.GITHUB_REPO;
-    const githubToken = process.env.GITHUB_TOKEN;
-
-    // Fallback Alias ID & Name untuk Kompatibilitas Lintas Fitur
     const resolvedEpisodeId = episodeId || songId || contentId;
     const resolvedEpisodeName = episodeName || songTitle || contentName || itemName || 'Untitled';
 
@@ -47,7 +62,6 @@ export async function POST(request: Request) {
     // A. UPLOAD / UPDATE FILE ORIGINAL (CANTO & INTERVALLO)
     // ----------------------------------------------------
     if (type === 'admin_original') {
-      // Jika request berasal dari fitur Lagu/Songs
       if (albumName || songTitle || songId || body.song_id || body.song_title) {
         const targetAlbum = resolvedAlbumName;
         const targetTitle = resolvedSongTitle;
@@ -56,7 +70,7 @@ export async function POST(request: Request) {
         let fileSha: string | undefined = undefined;
         try {
           const getFileRes = await fetch(
-            `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+            `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
             {
               headers: {
                 Authorization: `Bearer ${githubToken}`,
@@ -71,7 +85,7 @@ export async function POST(request: Request) {
         } catch (e) {}
 
         const ghRes = await fetch(
-          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
           {
             method: 'PUT',
             headers: {
@@ -92,13 +106,15 @@ export async function POST(request: Request) {
         const ghData = await ghRes.json();
         if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+        const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
         if (resolvedSongId) {
           const { data, error } = await supabase
             .from('songs')
             .update({
               song_title: targetTitle,
               album_name: targetAlbum,
-              original_file_url: ghData.content.download_url,
+              original_file_url: rawFileUrl,
             })
             .eq('id', resolvedSongId)
             .select()
@@ -113,7 +129,7 @@ export async function POST(request: Request) {
               album_name: targetAlbum,
               song_title: targetTitle,
               banner_url: body.bannerUrl || body.banner_url || '',
-              original_file_url: ghData.content.download_url,
+              original_file_url: rawFileUrl,
             })
             .select()
             .maybeSingle();
@@ -123,7 +139,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // Logika Asli untuk Canto & Intervallo
       const storyCategory = intervalloName ? 'intervallo' : 'canto';
       const storyName = intervalloName || cantoName || 'Unknown';
       const filePath = `originals/${storyCategory}/${storyName}/${resolvedEpisodeName}/${fileName}`;
@@ -131,7 +146,7 @@ export async function POST(request: Request) {
       let fileSha: string | undefined = undefined;
       try {
         const getFileRes = await fetch(
-          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
           {
             headers: {
               Authorization: `Bearer ${githubToken}`,
@@ -146,7 +161,7 @@ export async function POST(request: Request) {
       } catch (e) {}
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -167,10 +182,12 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       if (resolvedEpisodeId) {
         const updatePayload: Record<string, any> = {
           episode_name: resolvedEpisodeName,
-          original_file_url: ghData.content.download_url,
+          original_file_url: rawFileUrl,
         };
         if (intervalloName) updatePayload.intervallo_name = intervalloName;
         else if (cantoName) updatePayload.canto_name = cantoName;
@@ -187,7 +204,7 @@ export async function POST(request: Request) {
       } else {
         const insertPayload: Record<string, any> = {
           episode_name: resolvedEpisodeName,
-          original_file_url: ghData.content.download_url,
+          original_file_url: rawFileUrl,
         };
         if (intervalloName) insertPayload.intervallo_name = intervalloName;
         else insertPayload.canto_name = cantoName;
@@ -211,7 +228,7 @@ export async function POST(request: Request) {
       const filePath = `submissions/${targetId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -229,9 +246,11 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       const insertPayload: Record<string, any> = {
         file_name: fileName,
-        file_url: ghData.content.download_url,
+        file_url: rawFileUrl,
         author_name: authorName,
         author_id: authorId,
       };
@@ -258,7 +277,7 @@ export async function POST(request: Request) {
       let fileSha: string | undefined = undefined;
       try {
         const getFileRes = await fetch(
-          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
           {
             headers: {
               Authorization: `Bearer ${githubToken}`,
@@ -273,7 +292,7 @@ export async function POST(request: Request) {
       } catch (e) {}
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -294,12 +313,14 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       if (contentId) {
         const { data, error } = await supabase
           .from('announcer_contents')
           .update({
             content_name: contentName,
-            original_file_url: ghData.content.download_url,
+            original_file_url: rawFileUrl,
           })
           .eq('id', contentId)
           .select()
@@ -313,7 +334,7 @@ export async function POST(request: Request) {
           .insert({
             announcer_name: announcerName,
             content_name: contentName,
-            original_file_url: ghData.content.download_url,
+            original_file_url: rawFileUrl,
           })
           .select()
           .maybeSingle();
@@ -330,7 +351,7 @@ export async function POST(request: Request) {
       const filePath = `submissions/announcer/${contentId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -348,12 +369,14 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       const { data, error } = await supabase
         .from('announcer_submissions')
         .insert({
           content_id: contentId,
           file_name: fileName,
-          file_url: ghData.content.download_url,
+          file_url: rawFileUrl,
           author_name: authorName,
           author_id: authorId,
         })
@@ -374,7 +397,7 @@ export async function POST(request: Request) {
       let fileSha: string | undefined = undefined;
       try {
         const getFileRes = await fetch(
-          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
           {
             headers: {
               Authorization: `Bearer ${githubToken}`,
@@ -389,7 +412,7 @@ export async function POST(request: Request) {
       } catch (e) {}
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -410,12 +433,14 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       const payload: Record<string, any> = {
         item_name: itemName,
         category: mdCategory,
         theme_pack: mdCategory === 'event_choice' ? mdThemePack : null,
         tier: mdCategory === 'ego_gift' ? Number(mdTier) : null,
-        original_file_url: ghData.content.download_url,
+        original_file_url: rawFileUrl,
       };
 
       if (body.imageUrl || body.image_url) payload.image_url = body.imageUrl || body.image_url;
@@ -449,7 +474,7 @@ export async function POST(request: Request) {
       const filePath = `submissions/mirror_dungeon/${itemId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -467,12 +492,14 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       const { data, error } = await supabase
         .from('mirror_dungeon_submissions')
         .insert({
           content_id: itemId,
           file_name: fileName,
-          file_url: ghData.content.download_url,
+          file_url: rawFileUrl,
           author_name: authorName,
           author_id: authorId,
         })
@@ -494,7 +521,7 @@ export async function POST(request: Request) {
       let fileSha: string | undefined = undefined;
       try {
         const getFileRes = await fetch(
-          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
           {
             headers: {
               Authorization: `Bearer ${githubToken}`,
@@ -509,7 +536,7 @@ export async function POST(request: Request) {
       } catch (e) {}
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -530,13 +557,15 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       if (resolvedSongId) {
         const { data, error } = await supabase
           .from('songs')
           .update({
             song_title: targetTitle,
             album_name: targetAlbum,
-            original_file_url: ghData.content.download_url,
+            original_file_url: rawFileUrl,
           })
           .eq('id', resolvedSongId)
           .select()
@@ -551,7 +580,7 @@ export async function POST(request: Request) {
             album_name: targetAlbum,
             song_title: targetTitle,
             banner_url: body.bannerUrl || body.banner_url || '',
-            original_file_url: ghData.content.download_url,
+            original_file_url: rawFileUrl,
           })
           .select()
           .maybeSingle();
@@ -569,7 +598,7 @@ export async function POST(request: Request) {
       const filePath = `submissions/songs/${targetId}/${Date.now()}_${fileName}`;
 
       const ghRes = await fetch(
-        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
         {
           method: 'PUT',
           headers: {
@@ -587,12 +616,165 @@ export async function POST(request: Request) {
       const ghData = await ghRes.json();
       if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
 
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
       const { data, error } = await supabase
         .from('submissions')
         .insert({
           song_id: targetId,
           file_name: fileName,
-          file_url: ghData.content.download_url,
+          file_url: rawFileUrl,
+          author_name: authorName,
+          author_id: authorId,
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      return NextResponse.json({ success: true, data });
+    }
+
+    // ----------------------------------------------------
+    // I. UPLOAD / UPDATE FILE ORIGINAL (IDENTITAS / IDENTITY)
+    // ----------------------------------------------------
+    if (type === 'admin_identity_original') {
+      const targetSinner = sinnerName || 'Gregor';
+      const targetIdentity = identityName || 'Move-in Reg. Gregor';
+      const targetContent = contentName || 'Skill';
+      
+      const filePath = `originals/identities/${targetSinner}/${targetIdentity}/${targetContent}/${fileName}`;
+
+      let fileSha: string | undefined = undefined;
+      try {
+        const getFileRes = await fetch(
+          `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${githubToken}`,
+              'User-Agent': 'Limbus-TL-App',
+            },
+          }
+        );
+        if (getFileRes.ok) {
+          const fileData = await getFileRes.json();
+          fileSha = fileData.sha;
+        }
+      } catch (e) {}
+
+      const ghRes = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Limbus-TL-App',
+          },
+          body: JSON.stringify({
+            message: contentId
+              ? `Update identity original: ${targetIdentity} - ${targetContent}`
+              : `Add identity original: ${targetIdentity} - ${targetContent}`,
+            content: base64Content,
+            ...(fileSha && { sha: fileSha }),
+          }),
+        }
+      );
+
+      const ghData = await ghRes.json();
+      if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
+
+      // URL Raw presisi menggunakan struktur refs/heads/main
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
+      const payload: Record<string, any> = {
+        sinner_name: targetSinner,
+        identity_name: targetIdentity,
+        content_name: targetContent,
+        original_file_url: rawFileUrl,
+      };
+
+      if (bannerUrl || body.banner_url) {
+        payload.banner_url = bannerUrl || body.banner_url;
+      }
+
+      // Prioritas 1: Update via contentId
+      if (contentId) {
+        const { data, error } = await supabase
+          .from('identity_contents')
+          .update(payload)
+          .eq('id', contentId)
+          .select()
+          .maybeSingle();
+
+        if (error) throw new Error(`Supabase Update Error: ${error.message}`);
+        return NextResponse.json({ success: true, data });
+      }
+
+      // Prioritas 2: Cari record berdasarkan sinner + identity + content
+      const { data: existingRecord } = await supabase
+        .from('identity_contents')
+        .select('id')
+        .ilike('sinner_name', targetSinner)
+        .ilike('identity_name', targetIdentity)
+        .ilike('content_name', targetContent)
+        .maybeSingle();
+
+      if (existingRecord) {
+        const { data, error } = await supabase
+          .from('identity_contents')
+          .update(payload)
+          .eq('id', existingRecord.id)
+          .select()
+          .maybeSingle();
+
+        if (error) throw new Error(`Supabase Update Error: ${error.message}`);
+        return NextResponse.json({ success: true, data });
+      }
+
+      // Prioritas 3: Insert record baru jika belum ada
+      const { data, error } = await supabase
+        .from('identity_contents')
+        .insert(payload)
+        .select()
+        .maybeSingle();
+
+      if (error) throw new Error(`Supabase Insert Error: ${error.message}`);
+      return NextResponse.json({ success: true, data });
+    }
+
+    // ----------------------------------------------------
+    // J. UPLOAD SUBMISSION TERJEMAHAN (IDENTITAS / IDENTITY)
+    // ----------------------------------------------------
+    if (type === 'user_identity_submission') {
+      const filePath = `submissions/identities/${contentId}/${Date.now()}_${fileName}`;
+
+      const ghRes = await fetch(
+        `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${encodeURI(filePath)}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Limbus-TL-App',
+          },
+          body: JSON.stringify({
+            message: `Add identity translation for content ID: ${contentId}`,
+            content: base64Content,
+          }),
+        }
+      );
+
+      const ghData = await ghRes.json();
+      if (!ghRes.ok) throw new Error(ghData.message || 'Gagal upload ke GitHub');
+
+      const rawFileUrl = getRawGithubUrl(githubOwner, githubRepo, filePath);
+
+      const { data, error } = await supabase
+        .from('identity_submissions')
+        .insert({
+          content_id: contentId,
+          file_name: fileName,
+          file_url: rawFileUrl,
           author_name: authorName,
           author_id: authorId,
         })

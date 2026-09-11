@@ -18,9 +18,10 @@ interface IdentityContent {
 
 interface Submission {
   id: string;
-  content_id?: string;
-  file_name: string;
-  file_url: string;
+  content_id: string;
+  json_snippet: string;
+  file_name?: string;
+  file_url?: string;
   status: string;
   author_name: string;
   author_id?: string;
@@ -49,34 +50,46 @@ const SINNER_LOGOS: Record<string, string> = {
 
 export default function IdentityTranslationPage() {
   const [contents, setContents] = useState<IdentityContent[]>([]);
-  const [selectedIdentity, setSelectedIdentity] = useState<string>('');
+  const [selectedIdentity, setSelectedIdentity] = useState<string | null>(null);
   const [selectedContent, setSelectedContent] = useState<IdentityContent | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [originalJson, setOriginalJson] = useState<string>('');
   const [activeSinnerFilter, setActiveSinnerFilter] = useState<string | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
-  
-  // Modal States
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [modalType, setModalType] = useState<'add_identity_banner' | 'add_identity_content' | 'edit_identity_banner' | 'edit_identity_content'>('add_identity_banner');
-  
-  // Target Edit / Form Inputs
-  const [targetIdentityName, setTargetIdentityName] = useState('');
+
+  // Modals
+  const [showAddBannerModal, setShowAddBannerModal] = useState(false);
+  const [showEditBannerModal, setShowEditBannerModal] = useState(false);
+  const [showAddContentModal, setShowAddContentModal] = useState(false);
+  const [showEditItemModal, setShowEditItemModal] = useState(false);
+  const [showEditOriginalModal, setShowEditOriginalModal] = useState(false);
+  const [showEditSubModal, setShowEditSubModal] = useState(false);
+
+  // Form States
+  const [bannerFormSinner, setBannerFormSinner] = useState(SINNERS[0]);
+  const [bannerFormName, setBannerFormName] = useState('');
+  const [bannerFormUrl, setBannerFormUrl] = useState('');
+  const [editingBannerTarget, setEditingBannerTarget] = useState<string | null>(null);
+
+  const [contentFormIdentity, setContentFormIdentity] = useState('');
+  const [contentFormName, setContentFormName] = useState('');
+  const [adminJsonText, setAdminJsonText] = useState('');
+
   const [editingContent, setEditingContent] = useState<IdentityContent | null>(null);
+  const [editContentName, setEditContentName] = useState('');
 
-  const [sinnerName, setSinnerName] = useState(SINNERS[0]);
-  const [identityName, setIdentityName] = useState('');
-  const [contentName, setContentName] = useState('');
-  const [bannerUrl, setBannerUrl] = useState('');
-  const [adminFile, setAdminFile] = useState<{ name: string; content: any } | null>(null);
+  const [editOriginalText, setEditOriginalText] = useState('');
 
-  const [userFile, setUserFile] = useState<{ name: string; content: any } | null>(null);
+  const [editingSub, setEditingSub] = useState<Submission | null>(null);
+  const [editSubText, setEditSubText] = useState('');
+
+  const [userJsonText, setUserJsonText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // --- CROPPER STATES ---
+  // Cropper States
   const [showCropper, setShowCropper] = useState(false);
-  const [rawImageSrc, setRawImageSrc] = useState<string>('');
+  const [rawImageSrc, setRawImageSrc] = useState('');
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
@@ -134,17 +147,14 @@ export default function IdentityTranslationPage() {
       }));
 
       setContents(enriched);
-      if (!selectedIdentity) {
-        setSelectedIdentity(enriched[0].identity_name);
-      }
     } else {
       setContents([]);
-      setSelectedIdentity('');
     }
   };
 
   const selectContent = async (item: IdentityContent) => {
     setSelectedContent(item);
+    setUserJsonText('');
 
     if (item.original_file_url) {
       try {
@@ -185,43 +195,34 @@ export default function IdentityTranslationPage() {
 
       if (newStatus === 'approved' && sub.author_id) {
         try {
-          const res = await fetch(`${sub.file_url}?t=${Date.now()}`, { cache: 'no-store' });
-          const json = await res.json();
-          
-          let idCount = 0;
-          if (Array.isArray(json.dataList)) {
-            idCount = json.dataList.length;
-          } else if (Array.isArray(json)) {
-            idCount = json.length;
+          let idCount = 1;
+          if (sub.json_snippet) {
+            const parsed = JSON.parse(sub.json_snippet);
+            if (Array.isArray(parsed)) idCount = parsed.length;
+            else if (typeof parsed === 'object' && parsed !== null) {
+              idCount = Array.isArray(parsed.dataList) ? parsed.dataList.length : 1;
+            }
           }
 
-          if (idCount > 0) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('contributions')
-              .eq('id', sub.author_id)
-              .single();
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('contributions')
+            .eq('id', sub.author_id)
+            .single();
 
-            const currentContrib = profile?.contributions || 0;
-            const updatedContrib = currentContrib + idCount;
+          const currentContrib = profile?.contributions || 0;
 
-            await supabase
-              .from('profiles')
-              .update({ contributions: updatedContrib })
-              .eq('id', sub.author_id);
-
-            alert(`Submission disetujui! +${idCount} kontribusi berhasil ditambahkan.`);
-          }
+          await supabase
+            .from('profiles')
+            .update({ contributions: currentContrib + idCount })
+            .eq('id', sub.author_id);
         } catch (e) {
-          alert('Status disetujui, namun gagal menghitung poin kontribusi.');
+          console.error(e);
         }
-      } else if (newStatus === 'rejected') {
-        alert('Submission ditolak.');
       }
 
       await fetchContents();
       if (selectedContent) await selectContent(selectedContent);
-
     } catch (err: any) {
       alert('Gagal memperbarui status: ' + err.message);
     } finally {
@@ -229,43 +230,162 @@ export default function IdentityTranslationPage() {
     }
   };
 
-  // Open Modals
-  const openAddIdentityBannerModal = () => {
-    setModalType('add_identity_banner');
-    setSinnerName(SINNERS[0]);
-    setIdentityName('');
-    setBannerUrl('');
-    setShowAdminModal(true);
+  // EDIT JSON ORIGINAL HANDLERS
+  const openEditOriginalModal = () => {
+    setEditOriginalText(originalJson);
+    setShowEditOriginalModal(true);
   };
 
-  const openAddIdentityContentModal = () => {
-    setModalType('add_identity_content');
-    setIdentityName(selectedIdentity || '');
-    setContentName('');
-    setAdminFile(null);
-    setShowAdminModal(true);
+  const handleUpdateOriginalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedContent || !editOriginalText.trim()) return;
+
+    let parsedPayload: any;
+    try {
+      parsedPayload = JSON.parse(editOriginalText);
+    } catch {
+      return alert('Format JSON tidak valid!');
+    }
+
+    setLoading(true);
+    try {
+      const fileNamePayload = selectedContent.original_file_url?.split('/').pop() || `${selectedContent.content_name.toLowerCase().replace(/\s+/g, '_')}.json`;
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'admin_identity_original',
+          contentId: selectedContent.id,
+          sinnerName: selectedContent.sinner_name,
+          identityName: selectedContent.identity_name,
+          contentName: selectedContent.content_name,
+          fileName: fileNamePayload,
+          jsonContent: parsedPayload,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Gagal meng-update file JSON original');
+
+      const formattedJson = JSON.stringify(parsedPayload, null, 2);
+      setOriginalJson(formattedJson);
+      setShowEditOriginalModal(false);
+
+      alert('JSON Original berhasil diperbarui!');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openEditIdentityBannerModal = (idName: string, currentBanner: string, e: React.MouseEvent) => {
+  // EDIT & DELETE SUBMISSION HANDLERS
+  const openEditSubModal = (sub: Submission) => {
+    setEditingSub(sub);
+    setEditSubText(sub.json_snippet || '');
+    setShowEditSubModal(true);
+  };
+
+  const handleUpdateSubmissionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSub || !editSubText.trim()) return;
+
+    try {
+      JSON.parse(editSubText);
+    } catch {
+      return alert('Format JSON tidak valid!');
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('identity_submissions')
+        .update({ json_snippet: editSubText })
+        .eq('id', editingSub.id);
+
+      if (error) throw error;
+
+      setShowEditSubModal(false);
+      setEditingSub(null);
+      if (selectedContent) await selectContent(selectedContent);
+    } catch (err: any) {
+      alert('Gagal memperbarui submission: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSubmission = async (subId: string) => {
+    if (!confirm('Hapus submission terjemahan ini?')) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('identity_submissions')
+        .delete()
+        .eq('id', subId);
+
+      if (error) throw error;
+
+      if (selectedContent) await selectContent(selectedContent);
+    } catch (err: any) {
+      alert('Gagal menghapus submission: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // BANNER HANDLERS
+  const openEditBannerModal = (idName: string, currentBanner: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setModalType('edit_identity_banner');
-    setTargetIdentityName(idName);
-    setIdentityName(idName);
-    setBannerUrl(currentBanner || '');
-    setShowAdminModal(true);
+    setEditingBannerTarget(idName);
+    setBannerFormName(idName);
+    setBannerFormUrl(currentBanner || '');
+    setShowEditBannerModal(true);
   };
 
-  const openEditContentModal = (item: IdentityContent, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setModalType('edit_identity_content');
-    setEditingContent(item);
-    setContentName(item.content_name);
-    setIdentityName(item.identity_name);
-    setAdminFile(null);
-    setShowAdminModal(true);
+  const handleSaveBanner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannerFormName.trim()) return;
+
+    setLoading(true);
+    try {
+      if (editingBannerTarget) {
+        const { error } = await supabase
+          .from('identity_contents')
+          .update({
+            identity_name: bannerFormName.trim(),
+            banner_url: bannerFormUrl.trim() || null,
+          })
+          .eq('identity_name', editingBannerTarget);
+
+        if (error) throw error;
+        if (selectedIdentity === editingBannerTarget) setSelectedIdentity(bannerFormName.trim());
+      } else {
+        const { error } = await supabase.from('identity_contents').insert([{
+          sinner_name: bannerFormSinner,
+          identity_name: bannerFormName.trim(),
+          content_name: 'Main Data',
+          banner_url: bannerFormUrl.trim() || null,
+          original_file_url: ''
+        }]);
+
+        if (error) throw error;
+        setSelectedIdentity(bannerFormName.trim());
+      }
+
+      await fetchContents();
+      setShowAddBannerModal(false);
+      setShowEditBannerModal(false);
+      setEditingBannerTarget(null);
+    } catch (err: any) {
+      alert('Gagal menyimpan banner: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteIdentityBanner = async (idNameToDelete: string, e: React.MouseEvent) => {
+  const handleDeleteBanner = async (idNameToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`PERINGATAN: Menghapus "${idNameToDelete}" akan menghapus SELURUH content identitas ini.\n\nYakin ingin melanjutkan?`)) return;
 
@@ -282,14 +402,44 @@ export default function IdentityTranslationPage() {
       if (error) throw error;
 
       if (selectedIdentity === idNameToDelete) {
-        setSelectedIdentity('');
+        setSelectedIdentity(null);
         setSelectedContent(null);
       }
 
-      fetchContents();
-      alert(`Identitas "${idNameToDelete}" berhasil dihapus.`);
+      await fetchContents();
     } catch (err: any) {
       alert('Gagal menghapus: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ITEM CONTENT HANDLERS
+  const openEditContentModal = (item: IdentityContent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingContent(item);
+    setEditContentName(item.content_name);
+    setShowEditItemModal(true);
+  };
+
+  const handleUpdateContentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContent || !editContentName.trim()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('identity_contents')
+        .update({ content_name: editContentName.trim() })
+        .eq('id', editingContent.id);
+
+      if (error) throw error;
+
+      setShowEditItemModal(false);
+      setEditingContent(null);
+      await fetchContents();
+    } catch (err: any) {
+      alert('Gagal memperbarui content: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -303,10 +453,95 @@ export default function IdentityTranslationPage() {
     try {
       await supabase.from('identity_submissions').delete().eq('content_id', id);
       await supabase.from('identity_contents').delete().eq('id', id);
-      fetchContents();
+      await fetchContents();
       if (selectedContent?.id === id) setSelectedContent(null);
     } catch (err: any) {
       alert('Gagal menghapus: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddContentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminJsonText.trim()) return alert('Tempelkan teks JSON mentah!');
+
+    let parsedJson: any;
+    try {
+      parsedJson = JSON.parse(adminJsonText);
+    } catch {
+      return alert('Format JSON tidak valid!');
+    }
+
+    setLoading(true);
+    try {
+      const targetObj = contents.find((c) => c.identity_name === contentFormIdentity);
+      const targetSinner = targetObj?.sinner_name || bannerFormSinner;
+      const targetBanner = targetObj?.banner_url || '';
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'admin_identity_original',
+          sinnerName: targetSinner,
+          identityName: contentFormIdentity || selectedIdentity,
+          contentName: contentFormName,
+          bannerUrl: targetBanner,
+          fileName: `${contentFormName.toLowerCase().replace(/\s+/g, '_')}.json`,
+          jsonContent: parsedJson,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Gagal membuat content baru');
+
+      setShowAddContentModal(false);
+      setContentFormName('');
+      setAdminJsonText('');
+      await fetchContents();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userJsonText.trim() || !selectedContent) return;
+
+    let parsedJson: any;
+    try {
+      parsedJson = JSON.parse(userJsonText);
+    } catch {
+      return alert('Format JSON tidak valid!');
+    }
+
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'user_identity_submission',
+          contentId: selectedContent.id,
+          fileName: `${selectedContent.content_name.toLowerCase().replace(/\s+/g, '_')}_translated.json`,
+          jsonContent: parsedJson,
+          jsonSnippet: userJsonText,
+          authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
+          authorId: user?.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Gagal submit terjemahan');
+
+      setUserJsonText('');
+      selectContent(selectedContent);
+      alert('Terjemahan berhasil dikirim!');
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setLoading(false);
     }
@@ -318,12 +553,10 @@ export default function IdentityTranslationPage() {
   }, []);
 
   const handleStartCrop = () => {
-    if (!bannerUrl) return alert('Masukkan URL Gambar terlebih dahulu!');
-    
-    // Melewatkan URL external ke Proxy API agar tidak kena CORS di canvas
-    const proxiedUrl = bannerUrl.startsWith('data:')
-      ? bannerUrl
-      : `/api/proxy-image?url=${encodeURIComponent(bannerUrl)}`;
+    if (!bannerFormUrl) return alert('Masukkan URL Gambar terlebih dahulu!');
+    const proxiedUrl = bannerFormUrl.startsWith('data:')
+      ? bannerFormUrl
+      : `/api/proxy-image?url=${encodeURIComponent(bannerFormUrl)}`;
 
     setRawImageSrc(proxiedUrl);
     setZoom(1);
@@ -334,150 +567,19 @@ export default function IdentityTranslationPage() {
   const handleSaveCroppedImage = async () => {
     try {
       const croppedImageBase64 = await getCroppedImg(rawImageSrc, croppedAreaPixels);
-      setBannerUrl(croppedImageBase64);
+      setBannerFormUrl(croppedImageBase64);
       setShowCropper(false);
-    } catch (e) {
+    } catch {
       alert('Gagal memotong gambar. Pastikan URL gambar dapat diakses.');
     }
   };
 
-  const handleAdminSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      if (modalType === 'add_identity_banner') {
-        if (!identityName) return alert('Nama Identitas tidak boleh kosong!');
-        
-        const { error } = await supabase.from('identity_contents').insert([{
-          sinner_name: sinnerName,
-          identity_name: identityName,
-          content_name: 'Main Data',
-          banner_url: bannerUrl,
-          original_file_url: ''
-        }]);
-
-        if (error) throw error;
-        setSelectedIdentity(identityName);
-
-      } else if (modalType === 'edit_identity_banner') {
-        const { error } = await supabase
-          .from('identity_contents')
-          .update({
-            identity_name: identityName,
-            banner_url: bannerUrl,
-          })
-          .eq('identity_name', targetIdentityName);
-
-        if (error) throw error;
-        if (selectedIdentity === targetIdentityName) setSelectedIdentity(identityName);
-
-      } else if (modalType === 'edit_identity_content' && editingContent) {
-        if (adminFile) {
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'admin_identity_original',
-              contentId: editingContent.id,
-              sinnerName: editingContent.sinner_name,
-              identityName: editingContent.identity_name,
-              contentName,
-              fileName: adminFile.name,
-              jsonContent: adminFile.content,
-            }),
-          });
-          if (!res.ok) throw new Error('Gagal memperbarui file content');
-        } else {
-          const { error } = await supabase
-            .from('identity_contents')
-            .update({ content_name: contentName })
-            .eq('id', editingContent.id);
-
-          if (error) throw error;
-        }
-
-      } else if (modalType === 'add_identity_content') {
-        if (!adminFile) return alert('Pilih file JSON mentah!');
-        
-        const targetObj = contents.find((c) => c.identity_name === identityName);
-        const targetSinner = targetObj?.sinner_name || sinnerName;
-        const targetBanner = targetObj?.banner_url || '';
-
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'admin_identity_original',
-            sinnerName: targetSinner,
-            identityName: identityName || selectedIdentity,
-            contentName,
-            bannerUrl: targetBanner,
-            fileName: adminFile.name,
-            jsonContent: adminFile.content,
-          }),
-        });
-        if (!res.ok) throw new Error('Gagal membuat content baru');
-      }
-
-      setShowAdminModal(false);
-      await fetchContents();
-
-      if (editingContent && selectedContent?.id === editingContent.id) {
-        await selectContent({ ...editingContent, content_name: contentName });
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-const handleUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // 1. Cek status autentikasi user terlebih dahulu
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return alert('Kamu harus login terlebih dahulu untuk mengirim terjemahan!');
-    }
-
-    // 2. Validasi kelengkapan data
-    if (!userFile || !selectedContent) return alert('Pilih file JSON terjemahan!');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'user_identity_submission',
-          contentId: selectedContent.id,
-          fileName: userFile.name,
-          jsonContent: userFile.content,
-          authorName: user?.user_metadata?.username || user?.email?.split('@')[0] || 'Translator',
-          authorId: user?.id,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Gagal submit terjemahan');
-      setUserFile(null);
-      selectContent(selectedContent);
-      alert('Terjemahan berhasil dikirim!');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   const uniqueIdentitiesList = Array.from(new Set(contents.map((c) => c.identity_name))).filter(Boolean);
-  const currentSubContents = contents.filter((c) => c.identity_name === selectedIdentity);
+  const currentSubContents = selectedIdentity ? contents.filter((c) => c.identity_name === selectedIdentity) : [];
 
   return (
     <div className="flex h-screen bg-[#0d0e10] text-zinc-300 text-xs font-sans overflow-hidden">
-      
+
       {/* SIDEBAR KIRI */}
       <aside className="w-80 border-r border-[#222327] bg-[#121316] p-4 flex flex-col justify-between shrink-0">
         <div className="space-y-4 flex-1 flex flex-col min-h-0">
@@ -497,7 +599,11 @@ const handleUserSubmit = async (e: React.FormEvent) => {
               return (
                 <button
                   key={sinner}
-                  onClick={() => setActiveSinnerFilter(isSelected ? null : sinner)}
+                  onClick={() => {
+                    setActiveSinnerFilter(isSelected ? null : sinner);
+                    setSelectedIdentity(null);
+                    setSelectedContent(null);
+                  }}
                   title={sinner}
                   className={`relative flex items-center justify-center p-1 transition-all rounded ${
                     isSelected
@@ -505,17 +611,13 @@ const handleUserSubmit = async (e: React.FormEvent) => {
                       : 'opacity-60 hover:opacity-100 hover:scale-105'
                   }`}
                 >
-                  <img
-                    src={logoUrl}
-                    alt={sinner}
-                    className="w-8 h-8 object-contain"
-                  />
+                  <img src={logoUrl} alt={sinner} className="w-8 h-8 object-contain" />
                 </button>
               );
             })}
           </div>
 
-          {/* DAFTAR BANNER IDENTITAS PER SINNER */}
+          {/* DAFTAR BANNER IDENTITAS */}
           <div className="space-y-4 overflow-y-auto pr-2 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {SINNERS.filter(s => !activeSinnerFilter || s === activeSinnerFilter).map((sinner) => {
               const sinnerIdentities = uniqueIdentitiesList.filter(idName => {
@@ -574,13 +676,13 @@ const handleUserSubmit = async (e: React.FormEvent) => {
                           {isAdmin && (
                             <div className="absolute top-1.5 right-1.5 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={(e) => openEditIdentityBannerModal(idName, banner || '', e)}
+                                onClick={(e) => openEditBannerModal(idName, banner || '', e)}
                                 className="bg-black/80 hover:bg-black text-amber-400 text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 font-bold"
                               >
                                 Edit
                               </button>
                               <button
-                                onClick={(e) => handleDeleteIdentityBanner(idName, e)}
+                                onClick={(e) => handleDeleteBanner(idName, e)}
                                 className="bg-red-950/90 hover:bg-red-800 text-red-200 text-[9px] px-1.5 py-0.5 rounded border border-red-500/40 font-bold"
                               >
                                 Hapus
@@ -601,14 +703,25 @@ const handleUserSubmit = async (e: React.FormEvent) => {
         {isAdmin && (
           <div className="pt-3 border-t border-[#222327] space-y-2 shrink-0">
             <button
-              onClick={openAddIdentityBannerModal}
-              className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded transition shadow text-xs"
+              onClick={() => {
+                setBannerFormSinner(SINNERS[0]);
+                setBannerFormName('');
+                setBannerFormUrl('');
+                setEditingBannerTarget(null);
+                setShowAddBannerModal(true);
+              }}
+              className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded transition shadow text-xs cursor-pointer"
             >
               + Admin: Tambah Banner Identitas
             </button>
             <button
-              onClick={openAddIdentityContentModal}
-              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-1.5 px-3 rounded transition shadow text-xs border border-zinc-700"
+              onClick={() => {
+                setContentFormIdentity(selectedIdentity || uniqueIdentitiesList[0] || '');
+                setContentFormName('');
+                setAdminJsonText('');
+                setShowAddContentModal(true);
+              }}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-1.5 px-3 rounded transition shadow text-xs border border-zinc-700 cursor-pointer"
             >
               + Admin: Tambah Content File
             </button>
@@ -617,15 +730,14 @@ const handleUserSubmit = async (e: React.FormEvent) => {
       </aside>
 
       {/* AREA KANAN */}
-      <main className="flex-1 p-6 overflow-y-auto space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        
+      <main className="flex-1 p-6 overflow-y-auto space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-[#0a0b0d]">
         {!selectedContent ? (
           <div className="space-y-4">
             <header className="border-b border-[#222327] pb-3 flex justify-between items-end">
               <div>
                 <span className="text-red-500 font-bold uppercase text-xs">Pilih File/Sub-Content Identitas</span>
                 <h2 className="text-2xl font-extrabold text-white">{selectedIdentity || 'Daftar Identitas'}</h2>
-                
+
                 <div className="flex items-center gap-4 mt-2 text-[11px]">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -686,7 +798,7 @@ const handleUserSubmit = async (e: React.FormEvent) => {
             <header className="border-b border-[#222327] pb-3">
               <button
                 onClick={() => setSelectedContent(null)}
-                className="text-red-400 hover:text-red-300 font-bold mb-2 block transition"
+                className="text-red-400 hover:text-red-300 font-bold mb-2 block transition cursor-pointer"
               >
                 &larr; Kembali ke Daftar Content
               </button>
@@ -694,21 +806,32 @@ const handleUserSubmit = async (e: React.FormEvent) => {
               <h2 className="text-2xl font-bold text-white">{selectedContent.content_name}</h2>
             </header>
 
-            {/* PREVIEW JSON */}
+            {/* PREVIEW JSON ORIGINAL */}
             <section className="bg-[#141518] border border-[#222327] rounded-lg overflow-hidden shadow-xl">
               <div className="bg-[#1a1b1f] px-4 py-2.5 border-b border-[#222327] flex justify-between items-center">
-                <span className="font-bold text-red-400">
+                <span className="font-bold text-amber-400">
                   File Mentah Original: <span className="text-zinc-200 font-mono text-[11px] ml-1">{selectedContent.original_file_url?.split('/').pop() || 'data.json'}</span>
                 </span>
-                <span className="text-[10px] text-zinc-500 uppercase font-mono">READ-ONLY JSON</span>
+                
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      onClick={openEditOriginalModal}
+                      className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2.5 py-1 rounded transition shadow flex items-center gap-1 cursor-pointer"
+                    >
+                      ✎ Edit JSON Original
+                    </button>
+                  )}
+                  <span className="text-[10px] text-zinc-500 uppercase font-mono">READ-ONLY JSON</span>
+                </div>
               </div>
-              
+
               <div className="p-4 bg-[#0d0e10] font-mono text-[11px] leading-relaxed text-zinc-300 max-h-96 overflow-y-auto whitespace-pre-wrap break-words [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <pre><code>{originalJson}</code></pre>
               </div>
             </section>
 
-            {/* FORM SUBMIT / BANNER COMPLETED */}
+            {/* FORM SUBMIT USER */}
             {selectedContent.is_completed ? (
               <section className="bg-[#101f18] border border-emerald-800/40 rounded-lg p-4 flex items-center justify-between shadow-lg">
                 <div className="flex items-center gap-3">
@@ -729,35 +852,34 @@ const handleUserSubmit = async (e: React.FormEvent) => {
             ) : (
               <section className="bg-[#14151a] border border-[#222327] rounded-lg p-4 space-y-3">
                 <h3 className="font-bold text-red-400">Submit Terjemahan Baru untuk {selectedContent.content_name}</h3>
-                <form onSubmit={handleUserSubmit} className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const r = new FileReader();
-                        r.onload = (ev) => setUserFile({ name: file.name, content: JSON.parse(ev.target?.result as string) });
-                        r.readAsText(file);
-                      }
-                    }}
-                    className="text-xs text-zinc-400 file:bg-[#222327] file:text-zinc-200 file:border-0 file:px-3 file:py-1.5 file:rounded hover:file:bg-[#2e3035] cursor-pointer"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading || !userFile}
-                    className="bg-red-700 hover:bg-red-600 disabled:bg-zinc-800 text-white font-bold px-4 py-1.5 rounded transition"
-                  >
-                    {loading ? 'Uploading...' : 'Submit Terjemahan'}
-                  </button>
+                <form onSubmit={handleUserSubmit} className="space-y-3">
+                  <div>
+                    <textarea
+                      rows={6}
+                      value={userJsonText}
+                      onChange={(e) => setUserJsonText(e.target.value)}
+                      placeholder='{ "dataList": [ { "id": 101, "title": "Hasil Terjemahan..." } ] }'
+                      className="w-full bg-[#0d0e10] border border-[#2a2b30] p-2.5 rounded font-mono text-xs text-amber-300 focus:outline-none focus:border-red-500 resize-y"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={loading || !userJsonText.trim()}
+                      className="bg-red-700 hover:bg-red-600 disabled:bg-zinc-800 text-white font-bold px-4 py-2 rounded transition cursor-pointer text-xs"
+                    >
+                      {loading ? 'Mengirim...' : 'Submit Terjemahan'}
+                    </button>
+                  </div>
                 </form>
               </section>
             )}
 
-            {/* DAFTAR REVIEW SUBMISSION */}
+            {/* DAFTAR SUBMISSION KOMUNITAS */}
             <section className="space-y-3">
               <h3 className="font-bold text-zinc-300">Daftar Review Terjemahan Komunitas</h3>
-              
+
               {submissions.length === 0 && (
                 <p className="text-zinc-500 text-xs italic">Belum ada submission terjemahan dari komunitas.</p>
               )}
@@ -766,7 +888,7 @@ const handleUserSubmit = async (e: React.FormEvent) => {
                 <div key={sub.id} className="bg-[#141518] border border-[#222327] p-3 rounded-lg space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-zinc-200">{sub.author_name}</span>
-                    
+
                     <div className="flex items-center gap-2">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
@@ -782,22 +904,25 @@ const handleUserSubmit = async (e: React.FormEvent) => {
 
                       {isAdmin && (
                         <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => openEditSubModal(sub)}
+                            className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded font-bold transition cursor-pointer"
+                          >
+                            Edit JSON
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubmission(sub.id)}
+                            className="bg-red-700 hover:bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold transition cursor-pointer"
+                          >
+                            Hapus
+                          </button>
                           {sub.status !== 'approved' && (
                             <button
                               onClick={() => handleUpdateSubmissionStatus(sub, 'approved')}
                               disabled={loading}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded font-bold transition disabled:opacity-50"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded font-bold transition cursor-pointer"
                             >
                               Approve
-                            </button>
-                          )}
-                          {sub.status !== 'rejected' && (
-                            <button
-                              onClick={() => handleUpdateSubmissionStatus(sub, 'rejected')}
-                              disabled={loading}
-                              className="bg-rose-900 hover:bg-rose-800 text-rose-200 text-[10px] px-2 py-0.5 rounded font-bold transition disabled:opacity-50"
-                            >
-                              Reject
                             </button>
                           )}
                         </div>
@@ -805,19 +930,11 @@ const handleUserSubmit = async (e: React.FormEvent) => {
                     </div>
                   </div>
 
-                  <div className="bg-[#1c1d22] p-3 rounded border border-[#26272e] flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-zinc-200">{sub.file_name}</p>
-                      <a
-                        href={sub.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-red-400 hover:underline text-[10px]"
-                      >
-                        Raw Link
-                      </a>
+                  {sub.json_snippet && (
+                    <div className="bg-[#0d0e10] p-3 rounded border border-[#26272e] font-mono text-[11px] text-amber-300/90 max-h-40 overflow-y-auto whitespace-pre-wrap break-words">
+                      <code>{sub.json_snippet}</code>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </section>
@@ -825,177 +942,248 @@ const handleUserSubmit = async (e: React.FormEvent) => {
         )}
       </main>
 
-      {/* MODAL ADMIN */}
-      {showAdminModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-red-400 font-bold text-sm">
-              {modalType === 'add_identity_banner' && 'Admin: Tambah Banner Identitas Baru'}
-              {modalType === 'edit_identity_banner' && `Admin: Edit Banner ${targetIdentityName}`}
-              {modalType === 'edit_identity_content' && `Admin: Edit ${editingContent?.content_name}`}
-              {modalType === 'add_identity_content' && 'Admin: Tambah Content File Baru'}
-            </h3>
+      {/* MODAL ADMIN: EDIT JSON ORIGINAL */}
+      {showEditOriginalModal && selectedContent && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2d2e38] pb-3">
+              <h3 className="text-amber-400 font-bold text-sm">
+                Edit JSON Original ({selectedContent.content_name})
+              </h3>
+              <span className="text-zinc-500 text-[10px] font-mono">Admin Only</span>
+            </div>
 
-            <form onSubmit={handleAdminSubmit} className="space-y-3">
-              {(modalType === 'add_identity_banner' || modalType === 'edit_identity_banner') && (
-                <>
-                  {modalType === 'add_identity_banner' && (
-                    <div>
-                      <label className="block text-zinc-400 mb-1">Pilih Sinner Owner</label>
-                      <select
-                        value={sinnerName}
-                        onChange={(e) => setSinnerName(e.target.value)}
-                        className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                        required
-                      >
-                        {SINNERS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Nama Banner Identitas</label>
-                    <input
-                      type="text"
-                      value={identityName}
-                      onChange={(e) => setIdentityName(e.target.value)}
-                      placeholder="Contoh: LCB Sinner Yi Sang"
-                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-zinc-400 mb-1">URL Banner / Artwork Identitas</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={bannerUrl}
-                        onChange={(e) => setBannerUrl(e.target.value)}
-                        className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
-                        placeholder="https://example.com/banner.png"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleStartCrop}
-                        className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1 rounded text-xs shrink-0"
-                      >
-                        Crop Gambar
-                      </button>
-                    </div>
-                  </div>
-
-                  {bannerUrl && (
-                    <div className="pt-2">
-                      <label className="block text-zinc-400 mb-1">Hasil Banner:</label>
-                      <div
-                        className="h-16 rounded-lg border border-red-500 overflow-hidden relative bg-cover bg-center"
-                        style={{ backgroundImage: `url('${bannerUrl}')` }}
-                      >
-                        <div className="absolute inset-0 bg-black/50 p-2 flex items-center">
-                          <span className="text-white font-bold text-xs">{identityName || 'Nama Identitas'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {modalType === 'edit_identity_content' && (
-                <>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Nama Content File</label>
-                    <input
-                      type="text"
-                      value={contentName}
-                      onChange={(e) => setContentName(e.target.value)}
-                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Ganti File JSON Mentah (Opsional)</label>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          const r = new FileReader();
-                          r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                          r.readAsText(f);
-                        }
-                      }}
-                      className="text-xs text-zinc-400"
-                    />
-                  </div>
-                </>
-              )}
-
-              {modalType === 'add_identity_content' && (
-                <>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Pilih Target Identitas</label>
-                    <select
-                      value={identityName}
-                      onChange={(e) => setIdentityName(e.target.value)}
-                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                      required
-                    >
-                      <option value="">-- Pilih Identitas --</option>
-                      {uniqueIdentitiesList.map((idName) => (
-                        <option key={idName} value={idName}>{idName}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Nama Content File</label>
-                    <input
-                      type="text"
-                      value={contentName}
-                      onChange={(e) => setContentName(e.target.value)}
-                      className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white"
-                      placeholder="Contoh: Skill / Passive / Dialogue"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Upload File JSON Mentah Original</label>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          const r = new FileReader();
-                          r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                          r.readAsText(f);
-                        }
-                      }}
-                      className="text-xs text-zinc-400"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
+            <form onSubmit={handleUpdateOriginalSubmit} className="space-y-3">
+              <textarea
+                rows={14}
+                value={editOriginalText}
+                onChange={(e) => setEditOriginalText(e.target.value)}
+                className="w-full bg-[#101113] border border-[#3f3f46] p-3 rounded text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  className="px-3 py-1.5 bg-zinc-800 rounded text-zinc-300"
+                  onClick={() => setShowEditOriginalModal(false)}
+                  className="px-3 py-1.5 bg-zinc-800 rounded text-xs text-white cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white font-bold rounded"
+                  className="px-4 py-1.5 bg-amber-600 font-bold rounded text-xs text-white hover:bg-amber-500 transition cursor-pointer"
                 >
-                  {loading ? 'Saving...' : 'Simpan Perubahan'}
+                  {loading ? 'Menyimpan...' : 'Simpan JSON Original'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN: EDIT SUBMISSION JSON */}
+      {showEditSubModal && editingSub && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-lg space-y-4">
+            <h3 className="text-amber-400 font-bold text-sm">Edit Terjemahan JSON</h3>
+            <form onSubmit={handleUpdateSubmissionSubmit} className="space-y-3">
+              <textarea
+                rows={8}
+                value={editSubText}
+                onChange={(e) => setEditSubText(e.target.value)}
+                className="w-full bg-[#101113] border border-[#3f3f46] p-3 rounded text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditSubModal(false)}
+                  className="px-3 py-1.5 bg-zinc-800 rounded text-xs text-white cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-1.5 bg-amber-600 font-bold rounded text-xs text-white cursor-pointer"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN: TAMBAH BANNER */}
+      {showAddBannerModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
+            <h3 className="text-red-400 font-bold text-sm">Admin: Tambah Banner Identitas Baru</h3>
+            <form onSubmit={handleSaveBanner} className="space-y-3">
+              <div>
+                <label className="block text-zinc-400 mb-1">Pilih Sinner Owner</label>
+                <select
+                  value={bannerFormSinner}
+                  onChange={(e) => setBannerFormSinner(e.target.value)}
+                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                >
+                  {SINNERS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-zinc-400 mb-1">Nama Banner Identitas</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: LCB Sinner Yi Sang"
+                  value={bannerFormName}
+                  onChange={(e) => setBannerFormName(e.target.value)}
+                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-zinc-400 mb-1">URL Banner / Artwork Identitas</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="https://example.com/banner.png"
+                    value={bannerFormUrl}
+                    onChange={(e) => setBannerFormUrl(e.target.value)}
+                    className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleStartCrop}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1 rounded text-xs shrink-0 cursor-pointer"
+                  >
+                    Crop
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowAddBannerModal(false)} className="px-3 py-1.5 bg-zinc-800 rounded text-xs cursor-pointer">Batal</button>
+                <button type="submit" disabled={loading} className="px-4 py-1.5 bg-red-700 font-bold rounded text-xs text-white cursor-pointer">Simpan Banner</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN: EDIT BANNER */}
+      {showEditBannerModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
+            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit Banner {editingBannerTarget}</h3>
+            <form onSubmit={handleSaveBanner} className="space-y-3">
+              <div>
+                <label className="block text-zinc-400 mb-1">Nama Identitas</label>
+                <input
+                  type="text"
+                  value={bannerFormName}
+                  onChange={(e) => setBannerFormName(e.target.value)}
+                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-zinc-400 mb-1">URL Banner / Artwork Identitas</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={bannerFormUrl}
+                    onChange={(e) => setBannerFormUrl(e.target.value)}
+                    className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleStartCrop}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1 rounded text-xs shrink-0 cursor-pointer"
+                  >
+                    Crop
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowEditBannerModal(false)} className="px-3 py-1.5 bg-zinc-800 rounded text-xs cursor-pointer">Batal</button>
+                <button type="submit" disabled={loading} className="px-4 py-1.5 bg-amber-600 font-bold rounded text-xs text-white cursor-pointer">Update Banner</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN: EDIT ITEM CONTENT */}
+      {showEditItemModal && editingContent && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-sm space-y-4">
+            <h3 className="text-amber-400 font-bold text-sm">Admin: Edit Content File</h3>
+            <form onSubmit={handleUpdateContentSubmit} className="space-y-3">
+              <input
+                type="text"
+                placeholder="Nama Content File"
+                value={editContentName}
+                onChange={(e) => setEditContentName(e.target.value)}
+                className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowEditItemModal(false)} className="px-3 py-1.5 bg-zinc-800 rounded text-xs cursor-pointer">Batal</button>
+                <button type="submit" disabled={loading} className="px-4 py-1.5 bg-amber-600 font-bold rounded text-xs text-white cursor-pointer">Update Content</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADMIN: TAMBAH CONTENT */}
+      {showAddContentModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1b1f] border border-[#2a2b30] p-5 rounded-lg w-full max-w-md space-y-4">
+            <h3 className="text-red-400 font-bold text-sm">Admin: Tambah Content File Baru</h3>
+            <form onSubmit={handleAddContentSubmit} className="space-y-3">
+              <div>
+                <label className="block text-zinc-400 mb-1">Pilih Target Identitas</label>
+                <select
+                  value={contentFormIdentity}
+                  onChange={(e) => setContentFormIdentity(e.target.value)}
+                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  required
+                >
+                  <option value="">-- Pilih Identitas --</option>
+                  {uniqueIdentitiesList.map((idName) => (
+                    <option key={idName} value={idName}>{idName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-zinc-400 mb-1">Nama Content File</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Skill / Passive / Dialogue"
+                  value={contentFormName}
+                  onChange={(e) => setContentFormName(e.target.value)}
+                  className="w-full bg-[#101113] border border-[#3f3f46] px-3 py-1.5 rounded text-white text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-zinc-400 mb-1">Tempelkan Teks JSON Mentah Original</label>
+                <textarea
+                  rows={6}
+                  value={adminJsonText}
+                  onChange={(e) => setAdminJsonText(e.target.value)}
+                  placeholder='{ "dataList": [ ... ] }'
+                  className="w-full bg-[#101113] border border-[#3f3f46] p-2 rounded text-white font-mono text-xs resize-y"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowAddContentModal(false)} className="px-3 py-1.5 bg-zinc-800 rounded text-xs cursor-pointer">Batal</button>
+                <button type="submit" disabled={loading} className="px-4 py-1.5 bg-red-700 font-bold rounded text-xs text-white cursor-pointer">Simpan Content</button>
               </div>
             </form>
           </div>
@@ -1036,14 +1224,14 @@ const handleUserSubmit = async (e: React.FormEvent) => {
               <button
                 type="button"
                 onClick={() => setShowCropper(false)}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded font-bold text-xs"
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded font-bold text-xs cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleSaveCroppedImage}
-                className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded font-bold text-xs"
+                className="px-4 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded font-bold text-xs cursor-pointer"
               >
                 Potong & Gunakan
               </button>
