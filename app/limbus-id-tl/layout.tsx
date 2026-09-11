@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import RecentActivity from '@/components/RecentActivity'; // Import komponen Aktivitas Terakhir
+import RecentActivity from '@/components/RecentActivity';
+import AnnouncementWidget from '@/components/AnnouncementWidget';
 
 interface LeaderboardUser {
   id: string;
@@ -51,7 +52,6 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
   }, []);
 
   const fetchUserProfile = async (userId: string, currentUser: User) => {
-    // Ambil username dari metadata Supabase Auth atau Email
     const resolvedName = currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User';
     setUsername(resolvedName);
 
@@ -64,7 +64,6 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
     if (profile) {
       setContributions(profile.contributions ?? 0);
       
-      // Otomatis sinkronkan username ke database jika di tabel profiles masih 'User' / kosong
       if (!profile.username || profile.username === 'User') {
         await supabase
           .from('profiles')
@@ -86,8 +85,6 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
     if (!error && data) {
       const formattedData = data.map((item) => {
         let displayName = item.username;
-        
-        // Fallback langsung via kode jika user yang login adalah pemilik ID tersebut
         if ((!displayName || displayName === 'User') && currentUser && currentUser.id === item.id) {
           displayName = currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User';
         }
@@ -153,20 +150,21 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
       {/* Grid Utama 3 Kolom */}
       <div className="max-w-[1600px] mx-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
 
-        {/* KOLOM KIRI: Direktori & Navigasi */}
+        {/* KOLOM KIRI: Polos tanpa outer border */}
         <aside className="md:col-span-2 space-y-4">
-          <div className="bg-[#14151a]/90 border border-[#7f1d1d] rounded p-3 text-center shadow-lg backdrop-blur">
+          {/* Logo & Teks Polos tanpa background & border */}
+          <div className="p-2 text-center">
             <img 
               src="https://i.imgur.com/rphZwYy.png" 
               alt="Indonesia Limbus Translation Logo" 
               className="w-20 h-20 mx-auto mb-2 object-contain"
             />
-            <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider leading-tight">
+            <p className="text-[11px] font-bold text-red-500 uppercase tracking-wider leading-tight">
               Indonesia Limbus Translation
             </p>
           </div>
 
-          <nav className="bg-[#14151a]/90 border border-[#27272a] rounded p-3 text-xs space-y-4 backdrop-blur">
+          <nav className="text-xs space-y-4">
             <div>
               <div className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">Navigasi</div>
               <ul className="space-y-1.5 text-[#a1a1aa]">
@@ -198,7 +196,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
           </nav>
 
           {/* WIDGET PROFIL */}
-          <div className="bg-[#14151a]/90 border border-[#27272a] rounded p-3 text-xs backdrop-blur space-y-1">
+          <div className="text-xs space-y-1 pt-2">
             <p className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">
               Profil Akun
             </p>
@@ -215,36 +213,26 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
           </div>
         </aside>
 
-        {/* KOLOM TENGAH Konten Utama */}
-        <main className="md:col-span-7 bg-[#14151a]/90 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur">
+        {/* KOLOM TENGAH: Konten Utama (Mempertahankan Kotak/Border Utama) */}
+        <main className="md:col-span-7 bg-[#14151a]/95 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur">
           {children}
         </main>
 
-        {/* KOLOM KANAN: Pengumuman, Leaderboard & Aktivitas Terakhir */}
+        {/* KOLOM KANAN: Sidebar Kanan Polos */}
         <aside className="md:col-span-3 space-y-4">
-          <div className="bg-[#14151a]/90 border border-[#7f1d1d] rounded overflow-hidden backdrop-blur">
-            <div className="bg-[#7f1d1d]/40 border-b border-[#7f1d1d] px-3 py-1.5 font-bold text-xs text-red-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Pengumuman</span>
-              <span className="text-[10px] bg-red-950 text-red-300 px-1 rounded">INFO</span>
-            </div>
-            <div className="p-3 text-xs space-y-2 text-[#a1a1aa]">
-              <p className="font-semibold text-slate-200">Tim Penerjemah Indonesia</p>
-              <p>Pilih kategori terjemahan di tengah halaman untuk mulai berkontribusi!</p>
-            </div>
-          </div>
+          
+          {/* WIDGET PENGUMUMAN DINAMIS */}
+          <AnnouncementWidget currentUser={user} />
 
           {/* WIDGET LEADERBOARD */}
-          <div className="bg-[#14151a]/90 border border-[#27272a] rounded overflow-hidden backdrop-blur shadow-lg">
-            <div className="bg-[#18181b] border-b border-[#27272a] px-3 py-2 flex justify-between items-center">
+          <div className="space-y-2">
+            <div className="border-b border-[#27272a] pb-2 flex justify-between items-center">
               <span className="font-bold text-xs text-amber-400 uppercase tracking-wider">
-                Leaderboard Agustus
-              </span>
-              <span className="text-[10px] bg-amber-950/80 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800/50">
-                Top 10
+                Leaderboard
               </span>
             </div>
 
-            <div className="p-3 text-xs space-y-2">
+            <div className="text-xs space-y-2">
               {leaderboard.length > 0 ? (
                 leaderboard.map((item, index) => (
                   <div 

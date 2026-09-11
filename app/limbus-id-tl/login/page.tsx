@@ -36,10 +36,10 @@ export default function LoginPage() {
     <div className="max-w-md mx-auto my-8 bg-[#0f1015] border border-[#7f1d1d] rounded p-6 shadow-2xl space-y-6">
       <div className="text-center space-y-1 border-b border-[#27272a] pb-4">
         <h1 className="text-xl font-black uppercase tracking-wider text-red-500">
-          Otorisasi Manajer
+          Login Manajer
         </h1>
         <p className="text-xs text-slate-400">
-          Masuk ke akun untuk mulai mengunggah terjemahan.
+          Masuk untuk mulai mengunggah terjemahan.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export default function LoginPage() {
       </form>
 
       <div className="text-center text-xs text-slate-400 border-t border-[#27272a] pt-4">
-        Belum memiliki akun Manajer?{' '}
+        Belum memiliki akun, Manajer?{' '}
         <Link href="/limbus-id-tl/register" className="text-red-400 font-bold hover:underline">
           Daftar Sekarang
         </Link>
