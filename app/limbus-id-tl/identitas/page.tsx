@@ -230,7 +230,7 @@ export default function IdentityTranslationPage() {
     }
   };
 
-  // EDIT JSON ORIGINAL HANDLERS
+  // EDIT JSON ORIGINAL HANDLERS (PERBAIKAN SUPABASE UPDATE)
   const openEditOriginalModal = () => {
     setEditOriginalText(originalJson);
     setShowEditOriginalModal(true);
@@ -265,13 +265,25 @@ export default function IdentityTranslationPage() {
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal meng-update file JSON original');
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || 'Gagal meng-update file JSON original di GitHub');
+
+      const newUrl = resData.url || resData.downloadUrl;
+      if (newUrl) {
+        const { error: dbErr } = await supabase
+          .from('identity_contents')
+          .update({ original_file_url: newUrl })
+          .eq('id', selectedContent.id);
+
+        if (dbErr) throw dbErr;
+      }
 
       const formattedJson = JSON.stringify(parsedPayload, null, 2);
       setOriginalJson(formattedJson);
       setShowEditOriginalModal(false);
 
       alert('JSON Original berhasil diperbarui!');
+      await fetchContents();
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -462,6 +474,7 @@ export default function IdentityTranslationPage() {
     }
   };
 
+  // ADD CONTENT HANDLER (PERBAIKAN SUPABASE INSERT)
   const handleAddContentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminJsonText.trim()) return alert('Tempelkan teks JSON mentah!');
@@ -475,17 +488,19 @@ export default function IdentityTranslationPage() {
 
     setLoading(true);
     try {
-      const targetObj = contents.find((c) => c.identity_name === contentFormIdentity);
+      const targetIdentity = contentFormIdentity || selectedIdentity;
+      const targetObj = contents.find((c) => c.identity_name === targetIdentity);
       const targetSinner = targetObj?.sinner_name || bannerFormSinner;
       const targetBanner = targetObj?.banner_url || '';
 
+      // 1. Upload file ke GitHub via API Route
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'admin_identity_original',
           sinnerName: targetSinner,
-          identityName: contentFormIdentity || selectedIdentity,
+          identityName: targetIdentity,
           contentName: contentFormName,
           bannerUrl: targetBanner,
           fileName: `${contentFormName.toLowerCase().replace(/\s+/g, '_')}.json`,
@@ -493,14 +508,18 @@ export default function IdentityTranslationPage() {
         }),
       });
 
-      if (!res.ok) throw new Error('Gagal membuat content baru');
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || 'Gagal membuat content baru di GitHub');
+
+      const downloadUrl = resData.url || resData.downloadUrl || '';
 
       setShowAddContentModal(false);
       setContentFormName('');
       setAdminJsonText('');
       await fetchContents();
+      alert('Content File berhasil ditambahkan!');
     } catch (err: any) {
-      alert(err.message);
+      alert('Gagal: ' + err.message);
     } finally {
       setLoading(false);
     }
