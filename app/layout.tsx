@@ -12,13 +12,13 @@ export const metadata: Metadata = {
     title: 'Indonesia Limbus Translation',
     description: 'Komunitas penerjemah teks dan cerita game Limbus Company ke dalam Bahasa Indonesia.',
     url: 'https://oresfall.vercel.app/limbus-id-tl',
-    siteName: 'Limbus Company Wiki TL',
+    siteName: 'Limbus Company Fan-Translation',
     images: [
       {
         url: 'https://i.imgur.com/CLtyIeQ.png',
         width: 1200,
         height: 630,
-        alt: 'Indonesia Limbus Translation Logo',
+        alt: 'Indonesia Limbus Translation Team',
       },
     ],
     locale: 'id_ID',

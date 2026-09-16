@@ -115,10 +115,15 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
       {/* 1. Bar Navigasi Atas */}
       <header className="bg-[#111217]/95 backdrop-blur border-b border-[#27272a] text-xs h-10 flex items-center justify-between px-4 sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Link href="/limbus-id-tl" className="font-extrabold text-[#ef4444] tracking-widest uppercase flex items-center gap-1.5">
-            <span className="bg-[#b91c1c] text-white px-1.5 py-0.5 rounded text-[10px]">ID</span>
-            Limbus Company Wiki TL
-          </Link>
+            <Link href="/limbus-id-tl" className="font-extrabold text-[#ef4444] tracking-widest uppercase flex items-center gap-1.5">
+              {/* Logo Limbus Company */}
+              <img 
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKfoJ4PFs75uI4dFbAvrNY65fRlCX1S1NnBo7udXrJyA&s=10" 
+                alt="Limbus Company Logo" 
+                className="h-5 w-auto object-contain" 
+              />
+              Limbus Company Fan-Translation
+            </Link>
         </div>
 
         <div className="flex items-center gap-4">

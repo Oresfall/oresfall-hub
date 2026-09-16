@@ -120,7 +120,7 @@ export default function LimbusWikiMainPage() {
             Tentang Indonesia Limbus Translation
         </h2>
         <p className="text-xs text-[#a1a1aa] leading-relaxed mb-4">
-            Wiki ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
+            Website ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
         </p>
         
         <a
