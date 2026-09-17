@@ -425,7 +425,9 @@ export default function CantoTranslationPage() {
     }
   };
 
-  const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)));
+  // SESUDAH (Tambahkan .sort() dengan numeric sorting)
+  const cantosList = Array.from(new Set(episodes.map((ep) => ep.canto_name)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   
   const currentEpisodes = episodes
     .filter((ep) => ep.canto_name === selectedCanto)

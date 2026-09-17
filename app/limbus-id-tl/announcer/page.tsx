@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -52,24 +52,11 @@ export default function AnnouncerTranslationPage() {
   const [userFile, setUserFile] = useState<{ name: string; content: any } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchContents();
-
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      verifyAdmin(user);
-    };
-    checkUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      verifyAdmin(session?.user || null);
-    });
-
-    return () => authListener.subscription.unsubscribe();
-  }, []);
-
   const verifyAdmin = (user: any) => {
-    if (!user) return setIsAdmin(false);
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
     const email = user.email || '';
     const username = user.user_metadata?.username || '';
     const role = user.user_metadata?.role || '';
@@ -86,26 +73,47 @@ export default function AnnouncerTranslationPage() {
     }
   };
 
-  const fetchContents = async () => {
-    const { data: contentData } = await supabase.from('announcer_contents').select('*').order('announcer_name');
-    const { data: subData } = await supabase.from('announcer_submissions').select('content_id, status').eq('status', 'approved');
+  const fetchContents = useCallback(async () => {
+    try {
+      const { data: contentData, error: contentErr } = await supabase
+        .from('announcer_contents')
+        .select('*')
+        .order('announcer_name');
 
-    if (contentData && contentData.length > 0) {
-      const approvedIds = new Set(subData?.map((s) => s.content_id) || []);
-      const enrichedContents = contentData.map((item) => ({
-        ...item,
-        is_completed: approvedIds.has(item.id),
-      }));
+      if (contentErr) throw contentErr;
 
-      setContents(enrichedContents);
-      if (!selectedAnnouncer) {
-        setSelectedAnnouncer(enrichedContents[0].announcer_name);
+      const { data: subData } = await supabase
+        .from('announcer_submissions')
+        .select('content_id, status')
+        .eq('status', 'approved');
+
+      if (contentData && contentData.length > 0) {
+        const approvedIds = new Set(subData?.map((s) => s.content_id) || []);
+        const enrichedContents = contentData.map((item) => ({
+          ...item,
+          is_completed: approvedIds.has(item.id),
+        }));
+
+        setContents(enrichedContents);
+        setSelectedAnnouncer((prev) => prev || enrichedContents[0].announcer_name);
+      } else {
+        setContents([]);
+        setSelectedAnnouncer('');
       }
-    } else {
-      setContents([]);
-      setSelectedAnnouncer('');
+    } catch (err: any) {
+      console.error('Gagal mengambil content:', err.message);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchContents();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      verifyAdmin(session?.user || null);
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, [fetchContents]);
 
   const selectContent = async (item: AnnouncerContent) => {
     setSelectedContent(item);
@@ -192,6 +200,20 @@ export default function AnnouncerTranslationPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper untuk membaca JSON dengan aman
+  const handleFileUpload = (file: File, callback: (data: { name: string; content: any }) => void) => {
+    const r = new FileReader();
+    r.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        callback({ name: file.name, content: parsed });
+      } catch (e) {
+        alert('File yang diunggah bukan format JSON yang valid!');
+      }
+    };
+    r.readAsText(file);
   };
 
   // HANDLER ACTION FORM
@@ -341,7 +363,7 @@ export default function AnnouncerTranslationPage() {
         setSelectedContent(null);
       }
 
-      fetchContents();
+      await fetchContents();
       alert(`Banner Announcer "${announcerToDelete}" berhasil dihapus.`);
     } catch (err: any) {
       alert('Gagal menghapus Announcer: ' + err.message);
@@ -358,7 +380,7 @@ export default function AnnouncerTranslationPage() {
     try {
       await supabase.from('announcer_submissions').delete().eq('content_id', id);
       await supabase.from('announcer_contents').delete().eq('id', id);
-      fetchContents();
+      await fetchContents();
       if (selectedContent?.id === id) setSelectedContent(null);
     } catch (err: any) {
       alert('Gagal menghapus: ' + err.message);
@@ -482,7 +504,7 @@ export default function AnnouncerTranslationPage() {
           </div>
         </div>
 
-        {/* BOTTOM SIDEBAR (DUA TOMBOL TERPISAH) */}
+        {/* BOTTOM SIDEBAR */}
         {isAdmin && (
           <div className="pt-3 border-t border-[#222327] space-y-2">
             <button
@@ -631,11 +653,7 @@ export default function AnnouncerTranslationPage() {
                     accept=".json"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        const r = new FileReader();
-                        r.onload = (ev) => setUserFile({ name: file.name, content: JSON.parse(ev.target?.result as string) });
-                        r.readAsText(file);
-                      }
+                      if (file) handleFileUpload(file, setUserFile);
                     }}
                     className="text-xs text-zinc-400 file:bg-[#222327] file:text-zinc-200 file:border-0 file:px-3 file:py-1.5 file:rounded hover:file:bg-[#2e3035] cursor-pointer"
                   />
@@ -818,11 +836,7 @@ export default function AnnouncerTranslationPage() {
                   accept=".json"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) {
-                      const r = new FileReader();
-                      r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                      r.readAsText(f);
-                    }
+                    if (f) handleFileUpload(f, setAdminFile);
                   }}
                   className="text-xs text-zinc-400"
                   required
@@ -923,11 +937,7 @@ export default function AnnouncerTranslationPage() {
                   accept=".json"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) {
-                      const r = new FileReader();
-                      r.onload = (ev) => setAdminFile({ name: f.name, content: JSON.parse(ev.target?.result as string) });
-                      r.readAsText(f);
-                    }
+                    if (f) handleFileUpload(f, setAdminFile);
                   }}
                   className="text-xs text-zinc-400"
                 />
