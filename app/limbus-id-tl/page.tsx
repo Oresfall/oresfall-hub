@@ -119,18 +119,44 @@ export default function LimbusWikiMainPage() {
         <h2 className="text-[#ef4444] font-bold text-sm tracking-wider uppercase border-b border-[#27272a] pb-2 mb-3">
             Tentang Indonesia Limbus Translation
         </h2>
-        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-4">
+        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-2">
             Website ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
         </p>
+        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-2">
+            Tertarik untuk berkontribusi tapi tidak memiliki waktu untuk menerjemahkan? Kamu tetap bisa mendukung proyek ini dengan memberikan donasi melalui link di bawah!
+        </p>
+        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-4">
+            Kalian juga dapat bergabung dengan komunitas Discord kami untuk berdiskusi, memberikan saran, atau sekadar bersosialisasi dengan sesama penggemar Limbus Company!
+        </p>
         
-        <a
-            href="https://drive.google.com/drive/folders/1mm45P52j7-CGTaCf_hjzMVFNyAWQ3WK9"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold text-xs px-4 py-2 rounded transition"
-        >
-            Download Terjemahan Indonesia
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+              href="https://drive.google.com/drive/folders/1mm45P52j7-CGTaCf_hjzMVFNyAWQ3WK9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold text-xs px-4 py-2 rounded transition"
+          >
+              Download Terjemahan Indonesia
+          </a>
+
+          <a
+              href="https://sociabuzz.com/oresfall/tribe"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2 rounded transition"
+          >
+              Dukungan Donasi
+          </a>
+
+          <a
+              href="https://discord.gg/BAqBnceVQS"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs px-4 py-2 rounded transition"
+          >
+              Komunitas Discord
+          </a>
+        </div>
       </section>
 
       <div className="bg-[#0f1015]/80 border border-[#27272a] rounded p-5 space-y-3">

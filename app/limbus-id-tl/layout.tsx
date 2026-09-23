@@ -183,6 +183,26 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
                     Download Terjemahan Indonesia
                   </a>
                 </li>
+                <li>
+                  <a 
+                    href="https://sociabuzz.com/oresfall/tribe" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-amber-400 font-bold hover:text-amber-300 transition block mb-1"
+                  >
+                    Dukungan Donasi
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="https://discord.gg/BAqBnceVQS" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-indigo-400 font-bold hover:text-indigo-300 transition block mb-1"
+                  >
+                    Komunitas Discord
+                  </a>
+                </li>
                 <li><Link href="/limbus-id-tl" className="hover:text-white transition">Halaman Utama</Link></li>
               </ul>
             </div>
