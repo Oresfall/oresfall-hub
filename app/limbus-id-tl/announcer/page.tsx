@@ -108,6 +108,12 @@ export default function AnnouncerTranslationPage() {
   useEffect(() => {
     fetchContents();
 
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      verifyAdmin(user);
+    };
+    checkUser();
+
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       verifyAdmin(session?.user || null);
     });
@@ -202,7 +208,6 @@ export default function AnnouncerTranslationPage() {
     }
   };
 
-  // Helper untuk membaca JSON dengan aman
   const handleFileUpload = (file: File, callback: (data: { name: string; content: any }) => void) => {
     const r = new FileReader();
     r.onload = (ev) => {
@@ -216,7 +221,6 @@ export default function AnnouncerTranslationPage() {
     r.readAsText(file);
   };
 
-  // HANDLER ACTION FORM
   const handleAddBannerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -421,7 +425,9 @@ export default function AnnouncerTranslationPage() {
     }
   };
 
-  const announcersList = Array.from(new Set(contents.map((item) => item.announcer_name)));
+  const announcersList = Array.from(new Set(contents.map((item) => item.announcer_name)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
   const currentContents = contents.filter((item) => item.announcer_name === selectedAnnouncer);
 
   return (
