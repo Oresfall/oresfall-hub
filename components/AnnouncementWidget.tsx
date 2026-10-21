@@ -3,167 +3,243 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-interface Announcement {
-  title: string;
-  content: string;
-  image_url: string | null;
+interface AnnouncementWidgetProps {
+  currentUser: User | null;
 }
 
-export default function AnnouncementWidget({ currentUser }: { currentUser: User | null }) {
-  const [announcement, setAnnouncement] = useState<Announcement>({
+interface AnnouncementData {
+  id: number | string;
+  title: string;
+  content: string;
+  image_url?: string | null;
+}
+
+export default function AnnouncementWidget({ currentUser }: AnnouncementWidgetProps) {
+  const [announcement, setAnnouncement] = useState<AnnouncementData>({
+    id: 1,
     title: 'Tim Penerjemah Indonesia',
     content: 'Pilih kategori terjemahan di tengah halaman untuk mulai berkontribusi!',
-    image_url: null,
+    image_url: '',
   });
 
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
+  const [contentInput, setContentInput] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Form state
-  const [formTitle, setFormTitle] = useState('');
-  const [formContent, setFormContent] = useState('');
-  const [formImageUrl, setFormImageUrl] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // State untuk mencegah Hydration Mismatch
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetchAnnouncement();
-    if (currentUser) {
-      checkAdminStatus(currentUser.id);
+    setMounted(true);
+  }, []);
+
+  // Verifikasi apakah user saat ini adalah Admin
+  useEffect(() => {
+    if (!currentUser) {
+      setIsAdmin(false);
+      return;
+    }
+    const email = currentUser.email || '';
+    const username = currentUser.user_metadata?.username || '';
+    const role = currentUser.user_metadata?.role || '';
+
+    if (
+      role === 'admin' ||
+      username.toLowerCase() === 'oresfall' ||
+      email.toLowerCase().includes('oresfall') ||
+      email === 'putraadhitama@gmail.com'
+    ) {
+      setIsAdmin(true);
     } else {
       setIsAdmin(false);
     }
   }, [currentUser]);
 
+  // Ambil data pengumuman terbaru dari Supabase
   const fetchAnnouncement = async () => {
-    const { data } = await supabase.from('announcements').select('*').eq('id', 1).single();
-    if (data) {
-      setAnnouncement(data);
-      setFormTitle(data.title);
-      setFormContent(data.content);
-      setFormImageUrl(data.image_url || '');
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setAnnouncement(data);
+      }
+    } catch (err: any) {
+      console.error('Gagal mengambil pengumuman:', err.message);
     }
   };
 
-  const checkAdminStatus = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('is_admin').eq('id', userId).maybeSingle();
-    if (data?.is_admin) {
-      setIsAdmin(true);
-    }
+  useEffect(() => {
+    fetchAnnouncement();
+  }, []);
+
+  const handleOpenEdit = () => {
+    setTitleInput(announcement.title);
+    setContentInput(announcement.content);
+    setImageUrlInput(announcement.image_url || '');
+    setIsEditing(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      title: formTitle,
-      content: formContent,
-      image_url: formImageUrl.trim() === '' ? null : formImageUrl,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      if (announcement.id) {
+        const { error } = await supabase
+          .from('announcements')
+          .update({
+            title: titleInput,
+            content: contentInput,
+            image_url: imageUrlInput ? imageUrlInput.trim() : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', announcement.id);
 
-    const { error } = await supabase.from('announcements').update(payload).eq('id', 1);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('announcements')
+          .insert([
+            {
+              title: titleInput,
+              content: contentInput,
+              image_url: imageUrlInput ? imageUrlInput.trim() : null,
+            },
+          ])
+          .select()
+          .single();
 
-    if (!error) {
-      setAnnouncement(payload);
+        if (error) throw error;
+        if (data) setAnnouncement(data);
+      }
+
+      await fetchAnnouncement();
       setIsEditing(false);
-    } else {
-      alert('Gagal memperbarui pengumuman');
+      alert('Pengumuman berhasil diperbarui secara global!');
+    } catch (err: any) {
+      alert('Gagal memperbarui pengumuman: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <div className="space-y-2">
-      {/* Header Bar */}
-      <div className="border-b border-[#7f1d1d] pb-1.5 flex items-center justify-between">
+      <div className="border-b border-[#27272a] pb-2 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-xs text-red-400 uppercase tracking-wider">
-            Pengumuman
+          <span className="font-bold text-xs text-[#ef4444] uppercase tracking-wider">
+            PENGUMUMAN
           </span>
-          {isAdmin && (
+          {isAdmin && !isEditing && (
             <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="text-[10px] text-zinc-400 hover:text-amber-400 underline transition cursor-pointer"
+              onClick={handleOpenEdit}
+              className="text-[10px] text-amber-400 hover:underline font-semibold cursor-pointer"
             >
-              [{isEditing ? 'Batal' : 'Edit'}]
+              [Edit]
             </button>
           )}
         </div>
-        <span className="text-[10px] bg-red-950 text-red-300 px-1 rounded font-bold">
+        <span className="bg-red-950 text-red-400 border border-red-800/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-widest uppercase">
           INFO
         </span>
       </div>
 
-      {/* Mode Edit Form (Khusus Admin) */}
-      {isEditing ? (
-        <form onSubmit={handleSave} className="space-y-2 py-2 text-xs">
-          <div>
-            <label className="block text-[10px] text-zinc-400 mb-1">Judul Pengumuman</label>
-            <input
-              type="text"
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
-              className="w-full bg-[#0e0f12] border border-[#27272a] p-1.5 rounded text-zinc-200 focus:outline-none focus:border-red-500"
-              required
-            />
+      {!isEditing ? (
+        <div className="space-y-2 pt-1">
+          <h3 className="font-bold text-xs text-zinc-200">{announcement.title}</h3>
+          
+          <div className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line prose prose-invert max-w-none">
+            {mounted ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {announcement.content}
+              </ReactMarkdown>
+            ) : (
+              <span>{announcement.content}</span>
+            )}
           </div>
-
-          <div>
-            <label className="block text-[10px] text-zinc-400 mb-1">Deskripsi Teks</label>
-            <textarea
-              rows={3}
-              value={formContent}
-              onChange={(e) => setFormContent(e.target.value)}
-              className="w-full bg-[#0e0f12] border border-[#27272a] p-1.5 rounded text-zinc-200 focus:outline-none focus:border-red-500 resize-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] text-zinc-400 mb-1">URL Gambar Banner (Opsional)</label>
-            <input
-              type="url"
-              placeholder="https://i.imgur.com/..."
-              value={formImageUrl}
-              onChange={(e) => setFormImageUrl(e.target.value)}
-              className="w-full bg-[#0e0f12] border border-[#27272a] p-1.5 rounded text-zinc-200 focus:outline-none focus:border-red-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold py-1 rounded transition cursor-pointer"
-          >
-            {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
-          </button>
-        </form>
-      ) : (
-        /* Tampilan Biasa */
-        <div className="py-1 text-xs space-y-2 text-[#a1a1aa]">
-          <p className="font-semibold text-slate-200">{announcement.title}</p>
-          <p className="leading-relaxed">{announcement.content}</p>
 
           {announcement.image_url && (
-            <div className="pt-2">
-              <div 
-                className="overflow-hidden"
-                style={{
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)',
-                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)',
+            <div className="mt-2 w-full rounded overflow-hidden border border-[#27272a]">
+              <img
+                src={announcement.image_url}
+                alt="Banner Pengumuman"
+                className="w-full h-auto block"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
                 }}
-              >
-                <img
-                  src={announcement.image_url}
-                  alt="Gambar Pengumuman"
-                  className="w-full h-auto object-cover max-h-56 block"
-                />
-              </div>
+              />
             </div>
           )}
         </div>
+      ) : (
+        <form onSubmit={handleSave} className="bg-[#14151a] border border-[#27272a] p-3 rounded space-y-3">
+          <div>
+            <label className="block text-[11px] text-zinc-400 mb-1">Judul Pengumuman</label>
+            <input
+              type="text"
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              className="w-full bg-[#0d0e10] border border-[#3f3f46] px-2.5 py-1 rounded text-xs text-white focus:outline-none focus:border-red-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] text-zinc-400 mb-1">
+              Isi Pengumuman (Mendukung Enter & **Bold**, *Italic*, <u>Underline</u>)
+            </label>
+            <textarea
+              rows={4}
+              value={contentInput}
+              onChange={(e) => setContentInput(e.target.value)}
+              className="w-full bg-[#0d0e10] border border-[#3f3f46] p-2 rounded text-xs text-white font-mono focus:outline-none focus:border-red-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] text-zinc-400 mb-1">
+              URL Link Gambar (Opsional)
+            </label>
+            <input
+              type="url"
+              placeholder="https://i.imgur.com/example.png"
+              value={imageUrlInput}
+              onChange={(e) => setImageUrlInput(e.target.value)}
+              className="w-full bg-[#0d0e10] border border-[#3f3f46] px-2.5 py-1 rounded text-xs text-white focus:outline-none focus:border-red-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[11px] cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white font-bold rounded text-[11px] cursor-pointer disabled:opacity-50"
+            >
+              {loading ? 'Simpan...' : 'Simpan'}
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

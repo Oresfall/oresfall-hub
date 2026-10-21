@@ -107,13 +107,13 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
 
   return (
     <div 
-      className="min-h-screen text-[#d4d4d8] font-sans bg-cover bg-center bg-fixed relative"
+      className="min-h-screen text-[#d4d4d8] font-sans bg-cover bg-center bg-fixed relative flex flex-col"
       style={{
         backgroundImage: `linear-gradient(to bottom, rgba(10, 10, 12, 0.88), rgba(10, 10, 12, 0.95)), url('https://raw.githubusercontent.com/Crescent-Moon-Studio/Limbus-Company-Assets/main/Backgrounds/main_bg.png')`
       }}
     >
       {/* 1. Bar Navigasi Atas */}
-      <header className="bg-[#111217]/95 backdrop-blur border-b border-[#27272a] text-xs h-10 flex items-center justify-between px-4 sticky top-0 z-50">
+      <header className="bg-[#111217]/95 backdrop-blur border-b border-[#27272a] text-xs h-10 flex items-center justify-between px-4 sticky top-0 z-50 w-full">
         <div className="flex items-center gap-4">
             <Link href="/limbus-id-tl" className="font-extrabold text-[#ef4444] tracking-widest uppercase flex items-center gap-1.5">
               {/* Logo Limbus Company */}
@@ -152,11 +152,11 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      {/* Grid Utama 3 Kolom */}
-      <div className="max-w-[1600px] mx-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+      {/* Grid Utama Layout ala Wiki.gg (Lebar Penuh, Menempel Pinggir, Seluruh Baris/Seksi Tetap Ada) */}
+      <div className="w-full px-4 py-4 grid grid-cols-1 md:grid-cols-12 gap-4 flex-1 items-start">
 
         {/* KOLOM KIRI: Polos tanpa outer border */}
-        <aside className="md:col-span-2 space-y-4">
+        <aside className="md:col-span-2 space-y-4 md:sticky md:top-14">
           {/* Logo & Teks Polos tanpa background & border */}
           <div className="p-2 text-center">
             <img 
@@ -239,12 +239,12 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         </aside>
 
         {/* KOLOM TENGAH: Konten Utama (Mempertahankan Kotak/Border Utama) */}
-        <main className="md:col-span-7 bg-[#14151a]/95 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur">
+        <main className="md:col-span-7 bg-[#14151a]/95 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur w-full">
           {children}
         </main>
 
         {/* KOLOM KANAN: Sidebar Kanan Polos */}
-        <aside className="md:col-span-3 space-y-4">
+        <aside className="md:col-span-3 space-y-4 md:sticky md:top-14">
           
           {/* WIDGET PENGUMUMAN DINAMIS */}
           <AnnouncementWidget currentUser={user} />

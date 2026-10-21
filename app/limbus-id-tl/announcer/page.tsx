@@ -65,7 +65,7 @@ export default function AnnouncerTranslationPage() {
       role === 'admin' ||
       username.toLowerCase() === 'oresfall' ||
       email.toLowerCase().includes('oresfall') ||
-      email === 'putraadhitama@gmail.com'
+      email === ''
     ) {
       setIsAdmin(true);
     } else {

@@ -65,7 +65,8 @@ const FAQS = [
 export default function LimbusWikiMainPage() {
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-[#181920] via-[#2a0e12] to-[#181920] border border-[#7f1d1d] rounded p-6 text-center relative overflow-hidden shadow-lg">
+      {/* BANNER HEROBAR */}
+      <div className="bg-gradient-to-r from-[#181920] via-[#2a0e12] to-[#181920] border border-[#7f1d1d] rounded p-6 text-center relative overflow-hidden shadow-xl">
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-slate-100 mb-2">
           Selamat Datang di <span className="text-[#ef4444]">Terjemahan Limbus Indonesia</span>
         </h1>
@@ -74,11 +75,12 @@ export default function LimbusWikiMainPage() {
             HADAPI DOKSLI, TERJEMAHKAN E.G.O
           </p>
         </div>
-        <p className="text-xs text-slate-400 max-w-2xl mx-auto mt-2">
+        <p className="text-xs text-slate-400 max-w-2xl mx-auto mt-2 leading-relaxed">
           Komunitas penimpa teks di game <span className="text-slate-200 font-semibold">Limbus Company</span> dalam bahasa Indonesia.
         </p>
       </div>
 
+      {/* KATEGORI TERJEMAHAN */}
       <div id="categori-grid" className="space-y-3">
         <div className="border-b border-[#3f3f46] pb-2">
           <h2 className="text-base font-black uppercase tracking-wider text-[#ef4444]">
@@ -115,27 +117,34 @@ export default function LimbusWikiMainPage() {
         </div>
       </div>
 
-      <section className="bg-[#18181b]/60 border border-[#27272a] rounded p-4">
-        <h2 className="text-[#ef4444] font-bold text-sm tracking-wider uppercase border-b border-[#27272a] pb-2 mb-3">
+      {/* TENTANG INDONESIA LIMBUS TRANSLATION */}
+      <section className="bg-[#18181b]/60 border border-[#27272a] rounded p-5 space-y-3 shadow-lg">
+        <h2 className="text-[#ef4444] font-bold text-sm tracking-wider uppercase border-b border-[#27272a] pb-2">
             Tentang Indonesia Limbus Translation
         </h2>
-        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-2">
-            Website ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
-        </p>
-        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-2">
-            Tertarik untuk berkontribusi tapi tidak memiliki waktu untuk menerjemahkan? Kamu tetap bisa mendukung proyek ini dengan memberikan donasi melalui link di bawah!
-        </p>
-        <p className="text-xs text-[#a1a1aa] leading-relaxed mb-4">
-            Kalian juga dapat bergabung dengan komunitas Discord kami untuk berdiskusi, memberikan saran, atau sekadar bersosialisasi dengan sesama penggemar Limbus Company!
-        </p>
         
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="space-y-2 text-xs text-[#a1a1aa] leading-relaxed">
+          <p>
+            Website ini berfungsi sebagai pusat koordinasi utama untuk menerjemahkan Canto cerita, skill Identitas, Announcer, EGO Gift, hingga Lirik Lagu ke dalam bahasa Indonesia.
+          </p>
+          <p>
+            Tertarik untuk berkontribusi tapi tidak memiliki waktu untuk menerjemahkan? Kamu tetap bisa mendukung proyek ini dengan memberikan donasi melalui link di bawah!
+          </p>
+          <p>
+            Kalian juga dapat bergabung dengan komunitas Discord kami untuk berdiskusi, memberikan saran, atau sekadar bersosialisasi dengan sesama penggemar Limbus Company!
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           <a
               href="https://drive.google.com/drive/folders/1mm45P52j7-CGTaCf_hjzMVFNyAWQ3WK9"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold text-xs px-4 py-2 rounded transition"
+              className="inline-flex items-center gap-2 bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold text-xs px-4 py-2 rounded transition shadow"
           >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+              </svg>
               Download Terjemahan Indonesia
           </a>
 
@@ -143,8 +152,11 @@ export default function LimbusWikiMainPage() {
               href="https://sociabuzz.com/oresfall/tribe"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2 rounded transition"
+              className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2 rounded transition shadow"
           >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
               Dukungan Donasi
           </a>
 
@@ -152,20 +164,24 @@ export default function LimbusWikiMainPage() {
               href="https://discord.gg/BAqBnceVQS"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs px-4 py-2 rounded transition"
+              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold text-xs px-4 py-2 rounded transition shadow"
           >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.077.077 0 0 1-.006.128c-.598.35-1.221.648-1.873.892-.041.016-.062.064-.04.106.355.698.766 1.363 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+              </svg>
               Komunitas Discord
           </a>
         </div>
       </section>
 
-      <div className="bg-[#0f1015]/80 border border-[#27272a] rounded p-5 space-y-3">
+      {/* FAQ SECTION */}
+      <div className="bg-[#0f1015]/80 border border-[#27272a] rounded p-5 space-y-3 shadow-lg">
         <h2 className="text-base font-bold uppercase tracking-wide text-slate-200 border-b border-[#27272a] pb-2">
           Pertanyaan yang Sering Diajukan (FAQ)
         </h2>
         <div className="space-y-3">
           {FAQS.map((faq, index) => (
-            <div key={index} className="bg-[#14151a] border border-[#27272a] p-3 rounded">
+            <div key={index} className="bg-[#14151a] border border-[#27272a] p-3 rounded hover:border-[#3f3f46] transition">
               <p className="text-xs font-bold text-red-400 mb-1">T: {faq.q}</p>
               <p className="text-xs text-slate-300 leading-relaxed">J: {faq.a}</p>
             </div>

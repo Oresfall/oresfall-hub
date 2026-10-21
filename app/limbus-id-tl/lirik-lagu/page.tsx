@@ -82,7 +82,7 @@ export default function SongLyricsPage() {
       role === 'admin' ||
       username.toLowerCase() === 'oresfall' ||
       email.toLowerCase().includes('oresfall') ||
-      email === 'putraadhitama@gmail.com'
+      email === ''
     ) {
       setIsAdmin(true);
     } else {

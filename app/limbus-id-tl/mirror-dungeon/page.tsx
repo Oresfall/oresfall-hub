@@ -100,7 +100,7 @@ export default function MirrorDungeonPage() {
       role === 'admin' ||
       username.toLowerCase() === 'oresfall' ||
       email.toLowerCase().includes('oresfall') ||
-      email === 'putraadhitama@gmail.com'
+      email === ''
     ) {
       setIsAdmin(true);
     } else {
