@@ -175,7 +175,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
               <ul className="space-y-1.5 text-[#a1a1aa]">
                 <li>
                   <a 
-                    href="https://drive.google.com/drive/folders/1mm45P52j7-CGTaCf_hjzMVFNyAWQ3WK9" 
+                    href="https://github.com/Oresfall/Indonesia-Limbus-Translation/releases/tag/v0.10.0" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="text-red-400 font-bold hover:text-red-300 transition block mb-1"
