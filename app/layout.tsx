@@ -15,10 +15,9 @@ export const metadata: Metadata = {
     siteName: 'Limbus Company Fan-Translation',
     images: [
       {
-        url: 'https://i.imgur.com/CLtyIeQ.png',
+        url: 'https://i.imgur.com/ykMxNzu.png',
         width: 1200,
         height: 630,
-        alt: 'Indonesia Limbus Translation Team',
       },
     ],
     locale: 'id_ID',
@@ -28,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Indonesia Limbus Translation',
     description: 'Komunitas penerjemah teks dan cerita game Limbus Company ke dalam Bahasa Indonesia.',
-    images: ['https://i.imgur.com/CLtyIeQ.png'],
+    images: ['https://i.imgur.com/ykMxNzu.png'],
   },
 };
 

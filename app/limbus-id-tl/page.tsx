@@ -137,7 +137,7 @@ export default function LimbusWikiMainPage() {
         
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <a
-              href="https://drive.google.com/drive/folders/1mm45P52j7-CGTaCf_hjzMVFNyAWQ3WK9"
+              href="https://github.com/Oresfall/Indonesia-Limbus-Translation/releases/tag/v0.10.0"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-[#b91c1c] hover:bg-[#dc2626] text-white font-bold text-xs px-4 py-2 rounded transition shadow"
