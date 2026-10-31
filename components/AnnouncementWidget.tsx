@@ -152,9 +152,6 @@ export default function AnnouncementWidget({ currentUser }: AnnouncementWidgetPr
             </button>
           )}
         </div>
-        <span className="bg-red-950 text-red-400 border border-red-800/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-widest uppercase">
-          INFO
-        </span>
       </div>
 
       {!isEditing ? (

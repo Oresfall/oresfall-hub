@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Indonesia Limbus Translation',
   description: 'Komunitas penerjemah teks dan cerita game Limbus Company ke dalam Bahasa Indonesia.',
   icons: {
-    icon: 'https://i.imgur.com/rphZwYy.png',
+    icon: 'https://i.imgur.com/ykMxNzu.png',
   },
   openGraph: {
     title: 'Indonesia Limbus Translation',

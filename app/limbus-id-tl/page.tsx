@@ -65,7 +65,7 @@ const FAQS = [
 export default function LimbusWikiMainPage() {
   return (
     <div className="space-y-6">
-      {/* BANNER HEROBAR */}
+      {/*Banner tengah*/}
       <div className="bg-gradient-to-r from-[#181920] via-[#2a0e12] to-[#181920] border border-[#7f1d1d] rounded p-6 text-center relative overflow-hidden shadow-xl">
         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-slate-100 mb-2">
           Selamat Datang di <span className="text-[#ef4444]">Terjemahan Limbus Indonesia</span>
@@ -80,7 +80,7 @@ export default function LimbusWikiMainPage() {
         </p>
       </div>
 
-      {/* KATEGORI TERJEMAHAN */}
+      {/*Kategori*/}
       <div id="categori-grid" className="space-y-3">
         <div className="border-b border-[#3f3f46] pb-2">
           <h2 className="text-base font-black uppercase tracking-wider text-[#ef4444]">
@@ -117,7 +117,7 @@ export default function LimbusWikiMainPage() {
         </div>
       </div>
 
-      {/* TENTANG INDONESIA LIMBUS TRANSLATION */}
+      {/*About us*/}
       <section className="bg-[#18181b]/60 border border-[#27272a] rounded p-5 space-y-3 shadow-lg">
         <h2 className="text-[#ef4444] font-bold text-sm tracking-wider uppercase border-b border-[#27272a] pb-2">
             Tentang Indonesia Limbus Translation
@@ -174,7 +174,7 @@ export default function LimbusWikiMainPage() {
         </div>
       </section>
 
-      {/* FAQ SECTION */}
+      {/*Struktur FAQ*/}
       <div className="bg-[#0f1015]/80 border border-[#27272a] rounded p-5 space-y-3 shadow-lg">
         <h2 className="text-base font-bold uppercase tracking-wide text-slate-200 border-b border-[#27272a] pb-2">
           Pertanyaan yang Sering Diajukan (FAQ)

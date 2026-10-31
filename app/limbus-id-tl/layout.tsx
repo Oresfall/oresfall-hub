@@ -112,11 +112,11 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         backgroundImage: `linear-gradient(to bottom, rgba(10, 10, 12, 0.88), rgba(10, 10, 12, 0.95)), url('https://raw.githubusercontent.com/Crescent-Moon-Studio/Limbus-Company-Assets/main/Backgrounds/main_bg.png')`
       }}
     >
-      {/* 1. Bar Navigasi Atas */}
+      {/*Atas*/}
       <header className="bg-[#111217]/95 backdrop-blur border-b border-[#27272a] text-xs h-10 flex items-center justify-between px-4 sticky top-0 z-50 w-full">
         <div className="flex items-center gap-4">
             <Link href="/limbus-id-tl" className="font-extrabold text-[#ef4444] tracking-widest uppercase flex items-center gap-1.5">
-              {/* Logo Limbus Company */}
+              {/*Title kiri atas*/}
               <img 
                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKfoJ4PFs75uI4dFbAvrNY65fRlCX1S1NnBo7udXrJyA&s=10" 
                 alt="Limbus Company Logo" 
@@ -152,15 +152,15 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      {/* Grid Utama Layout ala Wiki.gg (Lebar Penuh, Menempel Pinggir, Seluruh Baris/Seksi Tetap Ada) */}
+      {/*Sides Grid*/}
       <div className="w-full px-4 py-4 grid grid-cols-1 md:grid-cols-12 gap-4 flex-1 items-start">
 
-        {/* KOLOM KIRI: Polos tanpa outer border */}
+        {/*Kiri*/}
         <aside className="md:col-span-2 space-y-4 md:sticky md:top-14">
-          {/* Logo & Teks Polos tanpa background & border */}
+          {/*Logo*/}
           <div className="p-2 text-center">
             <img 
-              src="https://i.imgur.com/rphZwYy.png" 
+              src="https://i.imgur.com/rphZwYy.png"  /*LINK LOGO*/
               alt="Indonesia Limbus Translation Logo" 
               className="w-20 h-20 mx-auto mb-2 object-contain"
             />
@@ -220,7 +220,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
             </div>
           </nav>
 
-          {/* WIDGET PROFIL */}
+          {/*Widget Profil*/}
           <div className="text-xs space-y-1 pt-2">
             <p className="font-bold text-[#ef4444] uppercase tracking-wider border-b border-[#27272a] pb-1 mb-2">
               Profil Akun
@@ -238,18 +238,18 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
           </div>
         </aside>
 
-        {/* KOLOM TENGAH: Konten Utama (Mempertahankan Kotak/Border Utama) */}
+        {/*Tengah*/}
         <main className="md:col-span-7 bg-[#14151a]/95 border border-[#27272a] rounded p-5 shadow-2xl backdrop-blur w-full">
           {children}
         </main>
 
-        {/* KOLOM KANAN: Sidebar Kanan Polos */}
+        {/*Kanan*/}
         <aside className="md:col-span-3 space-y-4 md:sticky md:top-14">
           
-          {/* WIDGET PENGUMUMAN DINAMIS */}
+          {/*Announcement*/}
           <AnnouncementWidget currentUser={user} />
 
-          {/* WIDGET LEADERBOARD */}
+          {/*Leaderboard*/}
           <div className="space-y-2">
             <div className="border-b border-[#27272a] pb-2 flex justify-between items-center">
               <span className="font-bold text-xs text-amber-400 uppercase tracking-wider">
@@ -291,7 +291,7 @@ export default function LimbusWikiLayout({ children }: { children: React.ReactNo
             </div>
           </div>
 
-          {/* WIDGET AKTIVITAS TERAKHIR */}
+          {/*Activity*/}
           <RecentActivity />
         </aside>
 

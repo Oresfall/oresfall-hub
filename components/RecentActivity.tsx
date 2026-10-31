@@ -272,9 +272,6 @@ export default function RecentActivity() {
               {title}
             </p>
           </div>
-          <span className="bg-amber-950/80 text-amber-400 border border-amber-800/40 text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0">
-            Pending
-          </span>
         </div>
 
         <div className="pt-1 border-t border-[#222327]/60 flex justify-between items-end text-[10px]">
